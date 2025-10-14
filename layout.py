@@ -14,11 +14,12 @@ def layout_detection(path):
             "pages": []
         }
 
-    for res in output:
+    for res in output: 
+        data = res.json['res']
         if structured_document["document_path"] is None:
-            structured_document["document_path"] = res.get("input_path", "Unknown")
+            structured_document["document_path"] = data.get("input_path", "Unknown")
 
-        processed_data_1 = group_image_with_caption(res)
+        processed_data_1 = group_image_with_caption(data)
         final_page_data = remove_nested_boxes(processed_data_1)
 
         structured_document["pages"].append({

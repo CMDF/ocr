@@ -3,7 +3,7 @@ from layout import *
 import json
 
 if __name__ == "__main__":
-    layout_detection('/Users/neung_gae/Desktop/output')
+    layout_detection('/home/gyupil/Downloads/Test.pdf')
 
     try:
         with open('document_structure.json', 'r', encoding='utf-8') as f:
