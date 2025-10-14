@@ -1,6 +1,4 @@
-import json
 import math
-import os
 
 def _calculate_distance(box1, box2):
     coord1 = box1['coordinate']
