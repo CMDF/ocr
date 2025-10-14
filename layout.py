@@ -9,12 +9,12 @@ def layout_detection(path):
                            layout_nms=True)
 
     structured_document = {
-            "document_path": None,
-            "total_pages": 0,
-            "pages": []
-        }
+        "document_path": None,
+        "total_pages": 0,
+        "pages": []
+    }
 
-    for res in output: 
+    for res in output:
         data = res.json['res']
         if structured_document["document_path"] is None:
             structured_document["document_path"] = data.get("input_path", "Unknown")
