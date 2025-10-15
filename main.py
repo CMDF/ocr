@@ -6,26 +6,26 @@ import json
 
 if __name__ == "__main__":
     layout_detection('/home/gyupil/Downloads/Test.pdf')
-
     try:
         with open('document_structure.json', 'r', encoding='utf-8') as f:
-            document_data = json.load(f)
+            data = json.load(f)
 
-        graph_data = create_document_graph(document_data)
+        pages = data['pages']
 
-        with open('document_graph.json', 'w', encoding='utf-8') as f:
-            json.dump(graph_data, f, indent=2, ensure_ascii=False)
+        for page in pages:
+            boxes = page['boxes']
+            texts = [t for t in boxes if t['label'] == 'text']
 
-    except FileNotFoundError:
-        print("입력 파일을 찾을 수 없습니다.")
-    except Exception as e:
-        print("처리 중 오류가 발생했습니다 - ", e)
+            for text in texts:
+                coord = text['coordinate']
+                path = "/home/gyupil/mapping_test/Test/page_" + str(page['page_index'] + 1) + ".png"
+                paragraph = ocr(crop_image_by_bbox(path, coord))
+                found, figure = find_figure_reference(paragraph)
+                if found:
+                    text['text'] = figure
 
-    try:
-        with open('document_graph.json', 'r', encoding='utf-8') as f:
-            graph_json_data = json.load(f)
-
-        display_document_tree(graph_json_data)
+        with open('document_structure.json', 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
 
     except FileNotFoundError:
         print("입력 파일을 찾을 수 없습니다.")
@@ -36,17 +36,23 @@ if __name__ == "__main__":
         with open('document_structure.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        pages = data['pages']
-        for page in pages:
-            boxes = page['boxes']
-            texts = [t for t in boxes if t['label'] == 'text']
+        graph = build_document_graph(load_and_transform_data(data))
+        save_graph_to_json(graph, 'document_graph.json')
 
-            for text in texts:
-                coord = text['coordinate']
-                path = "/home/gyupil/mapping_test/Test/page_" + str(page['page_index'] + 1) + ".png"
-                ocr(crop_image_by_bbox(path, coord))
+    except FileNotFoundError:(
+        print("파일을 찾을 수 없습니다."))
+    except Exception as e:(
+        print("오류가 발생했습니다 - ", e))
 
-    except FileNotFoundError:
-        print("입력 파일을 찾을 수 없습니다.")
-    except Exception as e:
-        print("처리 중 오류가 발생했습니다 - ", e)
+    ref_nodes = find_nodes(graph, type='text', text=lambda t:t)
+    for node in ref_nodes:
+        print("ID: {} | {} in page {}".format(node['id'], node['text'], node['page']))
+
+    while True:
+        ID = input("보고 싶은 figure의 아이디를 입력하세요.\n종료는 0을 입력하세요.\n>>> ")
+        if ID == '0':
+            break
+        ref = get_referenced_nodes(graph, ID)
+        if ref:
+            for node in ref:
+                show(node['bbox'], 'Test/page_' + str(node['page'] + 1) + '.png')
