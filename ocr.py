@@ -24,7 +24,6 @@ def ocr(img):
     output = ocr_m.predict(input=img)
     paragraph = ""
     for res in output:
-        res.save_to_img('./')
         rec_texts = res['rec_texts']
         for rec_text in rec_texts:
             paragraph = paragraph + " " + rec_text
