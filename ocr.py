@@ -1,5 +1,6 @@
 from paddleocr import TextRecognition
 from paddleocr import PaddleOCR
+import re
 from crop import *
 
 model = TextRecognition(model_name="PP-OCRv5_server_rec")
@@ -31,3 +32,18 @@ def ocr(img):
     paragraph = paragraph[1:]
     
     return paragraph
+
+def find_figure_reference(text: str):
+    pattern = r'\bFigure\s*\d+(\.\d+)?'
+
+    match = re.search(pattern, text, re.IGNORECASE)
+
+    if match:
+        figure = match.group(0)
+        figure = figure.replace('  ', ' ')
+        idx = figure.find('e')
+        if figure[idx+1] != ' ':
+            figure = figure[:idx+1] + ' ' + figure[idx+1:]
+        return True, figure
+    else:
+        return False, None
