@@ -1,4 +1,6 @@
 import math
+from ocr import *
+from crop import *
 
 def _calculate_distance(box1, box2):
     coord1 = box1['coordinate']
@@ -36,8 +38,9 @@ def group_image_with_caption(page_data):
             img_coord, title_coord = image_box['coordinate'], title_box['coordinate']
             new_coord = [min(img_coord[0], title_coord[0]), min(img_coord[1], title_coord[1]),
                          max(img_coord[2], title_coord[2]), max(img_coord[3], title_coord[3])]
+            path = 'Test/page_' + str(page_data['page_index'] + 1) + '.png'
             merged_boxes.append({
-                "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord
+                "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': ocr(crop_image_by_bbox(path, title_coord))
             })
 
     unmatched_titles = [t for i, t in enumerate(title_boxes) if i not in used_title_indices]

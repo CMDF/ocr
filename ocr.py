@@ -3,7 +3,11 @@ from paddleocr import PaddleOCR
 from crop import *
 
 model = TextRecognition(model_name="PP-OCRv5_server_rec")
-ocr_m = PaddleOCR()
+ocr_m = PaddleOCR(use_doc_unwarping=False,
+                  use_doc_orientation_classify=False,
+                  use_textline_orientation=False,
+                  text_detection_model_name="PP-OCRv5_server_det",
+                  text_recognition_model_name="PP-OCRv5_server_rec")
 
 def ocr(img):
     scale_factor = 2
@@ -20,13 +24,19 @@ def ocr(img):
     output = ocr_m.predict(input=img)
     paragraph = ""
     for res in output:
+        res.save_to_img('./')
         rec_texts = res['rec_texts']
         for rec_text in rec_texts:
             paragraph = paragraph + " " + rec_text
-            if 'Fig' in rec_text:
-                plt.imshow(img)
-                plt.axis('on')
-                plt.show()
+
+    plt.imshow(img)
+    plt.axis('on')
+    plt.show()
+
+            # if 'Fig' in rec_text:
+            #     plt.imshow(img)
+            #     plt.axis('on')
+            #     plt.show()
 
     paragraph = paragraph[1:]
     
