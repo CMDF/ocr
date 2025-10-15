@@ -29,15 +29,6 @@ def ocr(img):
         for rec_text in rec_texts:
             paragraph = paragraph + " " + rec_text
 
-    plt.imshow(img)
-    plt.axis('on')
-    plt.show()
-
-            # if 'Fig' in rec_text:
-            #     plt.imshow(img)
-            #     plt.axis('on')
-            #     plt.show()
-
     paragraph = paragraph[1:]
     
     return paragraph
