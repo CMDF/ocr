@@ -37,6 +37,8 @@ if __name__ == "__main__":
             data = json.load(f)
 
         graph = build_document_graph(load_and_transform_data(data))
+        pairs = create_reference_pairs(graph)
+        print(type(pairs), type(pairs[0]))
         save_graph_to_json(graph, 'document_graph.json')
 
     except FileNotFoundError:(
@@ -52,7 +54,6 @@ if __name__ == "__main__":
         ID = input("보고 싶은 figure의 아이디를 입력하세요.\n종료는 0을 입력하세요.\n>>> ")
         if ID == '0':
             break
-        ref = get_referenced_nodes(graph, ID)
+        ref = pairs[ID]
         if ref:
-            for node in ref:
-                show(node['bbox'], 'Test/page_' + str(node['page'] + 1) + '.png')
+            show(ref['bbox'], 'Test/page_' + str(ref['page'] + 1) + '.png')

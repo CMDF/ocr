@@ -195,6 +195,64 @@ def build_document_graph(processed_data):
 
     return G
 
+def get_parent_section_map(graph):
+    parent_map = {}
+    for source_id, dest_id, attrs in graph.edges(data=True):
+        if attrs.get('type') == 'hierarchical':
+            parent_map[dest_id] = source_id
+
+    return parent_map
+
+def create_reference_pairs(graph):
+    target_nodes = defaultdict(list)
+    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm)\.?\s*(\d+(\.\d+)?)'
+    for node_id, attrs in graph.nodes(data=True):
+        if attrs.get('type') in ['figure', 'table', 'formula', 'algorithm']:
+            match = re.search(label_pattern, attrs.get('text', ''), re.IGNORECASE)
+            if match:
+                kind = match.group(1).lower().replace('fig', 'figure')
+                num = match.group(2)
+                key = f"{kind}:{num}"
+                target_nodes[key].append(attrs)
+
+    parent_map = get_parent_section_map(graph)
+
+    reference_pairs = {}
+    text_nodes = [attrs for _, attrs in graph.nodes(data=True) if attrs.get('type') == 'text']
+
+    for source_node in text_nodes:
+        ref_string = source_node.get('text', '')
+        match = re.match(label_pattern, ref_string.strip(), re.IGNORECASE)
+
+        if match:
+            kind, num = match.group(1).lower().replace('fig', 'figure'), match.group(2)
+            ref_key = f"{kind}:{num}"
+
+            candidates = target_nodes.get(ref_key, [])
+            if not candidates:
+                continue
+
+            best_match = None
+            if len(candidates) > 1:
+                source_parent = parent_map.get(source_node['id'])
+
+                if source_parent:
+                    for candidate in candidates:
+                        if parent_map.get(candidate['id']) == source_parent:
+                            best_match = candidate
+                            break
+
+                if not best_match:
+                    best_match = min(candidates, key=lambda c: abs(c['page'] - source_node['page']))
+
+            else:
+                best_match = candidates[0]
+
+            if best_match:
+                reference_pairs[source_node['id']] = best_match
+
+    return reference_pairs
+
 def get_referenced_nodes(graph, node_id):
     if not graph.has_node(node_id):
         print("그래프에 존재하지 않는 노드입니다.")
