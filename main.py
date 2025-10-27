@@ -38,7 +38,6 @@ if __name__ == "__main__":
 
         graph = build_document_graph(load_and_transform_data(data))
         pairs = create_reference_pairs(graph)
-        print(type(pairs), type(pairs[0]))
         save_graph_to_json(graph, 'document_graph.json')
 
     except FileNotFoundError:(

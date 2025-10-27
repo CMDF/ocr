@@ -4,6 +4,7 @@ import math
 from collections import defaultdict
 import json
 from networkx.readwrite import json_graph
+import matplotlib.pyplot as plt
 
 def load_and_transform_data(data):
     transformed_results = []
@@ -143,7 +144,9 @@ def add_reference_edges(graph, all_nodes):
             match = re.search(label_pattern, caption_text, re.IGNORECASE)
 
             if match:
-                kind = match.group(1).lower().replace('fig', 'figure')
+                kind = match.group(1).lower()
+                if kind == 'fig':
+                    kind = 'figure'
                 num = match.group(2)
                 key = f"{kind}:{num}"
                 target_nodes[key].append(node)
@@ -154,7 +157,9 @@ def add_reference_edges(graph, all_nodes):
             match = re.match(label_pattern, ref_string.strip(), re.IGNORECASE)
 
             if match:
-                kind = match.group(1).lower().replace('fig', 'figure')
+                kind = match.group(1).lower()
+                if kind == 'fig':
+                    kind = 'figure'
                 num = match.group(2)
                 ref_key = f"{kind}:{num}"
 
@@ -210,7 +215,9 @@ def create_reference_pairs(graph):
         if attrs.get('type') in ['figure', 'table', 'formula', 'algorithm']:
             match = re.search(label_pattern, attrs.get('text', ''), re.IGNORECASE)
             if match:
-                kind = match.group(1).lower().replace('fig', 'figure')
+                kind = match.group(1).lower()
+                if kind == 'fig':
+                    kind = 'figure'
                 num = match.group(2)
                 key = f"{kind}:{num}"
                 target_nodes[key].append(attrs)
@@ -225,7 +232,9 @@ def create_reference_pairs(graph):
         match = re.match(label_pattern, ref_string.strip(), re.IGNORECASE)
 
         if match:
-            kind, num = match.group(1).lower().replace('fig', 'figure'), match.group(2)
+            kind, num = match.group(1).lower(), match.group(2)
+            if kind == 'fig':
+                kind = 'figure'
             ref_key = f"{kind}:{num}"
 
             candidates = target_nodes.get(ref_key, [])
@@ -310,7 +319,41 @@ def load_graph_from_json(filepath='document_graph.json'):
             data = json.load(f)
             if 'links' in data and 'edges' not in data:
                 data['edges'] = data.pop('links')
-            return json_graph.node_link_graph(data)
+            return json_graph.node_link_graph(data, edges='edges')
     except FileNotFoundError:
         print(f"오류: '{filepath}' 파일을 찾을 수 없습니다.")
         return None
+
+def save_graph_to_img(graph: nx.Graph):
+    plt.figure(figsize=(30, 30))
+    pos = nx.spring_layout(graph, k=0.5, iterations=100)
+    node_color_map = {
+        'doc_title': 'gold',
+        'paragraph_title': 'orange',
+        'text': 'skyblue',
+        'figure': 'salmon',
+        'formula': 'lightgreen',
+        'number': 'lightgray'
+    }
+
+    edge_color_map = {
+        'hierarchical': 'black',
+        'spatial': 'darkgray',
+        'ref:figure': 'red'
+    }
+
+    node_colors = [node_color_map.get(graph.nodes[n]['type'], 'gray') for n in graph.nodes()]
+    edge_colors = [edge_color_map.get(graph.edges[e]['type'], 'gray') for e in graph.edges()]
+
+    nx.draw_networkx(
+        graph,
+        pos=pos,
+        node_size=1000,
+        node_color=node_colors,
+        edge_color=edge_colors,
+        font_size=20,
+        width=0.5,
+        alpha=0.8
+    )
+    plt.savefig('graph.png', dpi=300, bbox_inches='tight')
+    plt.show()
