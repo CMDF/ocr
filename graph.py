@@ -142,18 +142,48 @@ def build_document_graph(processed_data):
     return G
 
 # Creates a {child_id: parent_id} map by traversing 'hierarchical' edges.
-def _get_parent_section_map(graph):
-    parent_map = {}
-    for source_id, dest_id, attrs in graph.edges(data=True):
-        if attrs.get('type') == 'hierarchical':
-            parent_map[dest_id] = source_id
+def _get_hierarchical_ancestors(graph, node_id):
+    ancestors = {
+        'paragraph_title': set(),
+        'doc_title': set()
+    }
 
-    return parent_map
+    queue = list(graph.predecessors(node_id))
+    visited = {node_id}
+
+    while queue:
+        parent_id = queue.pop(0)
+        if parent_id in visited:
+            continue
+        visited.add(parent_id)
+
+        try:
+            edge_data = graph.get_edge_data(parent_id, node_id)
+            node_attrs = graph.nodes[parent_id]
+        except KeyError:
+            continue
+
+        if edge_data and edge_data.get('type') == 'hierarchical':
+            node_type = node_attrs.get('type')
+
+            if node_type in ['paragraph_title', 'section']:
+                ancestors['paragraph_title'].add(parent_id)
+            elif node_type == 'doc_title':
+                ancestors['doc_title'].add(parent_id)
+
+            for grand_parent_id in graph.predecessors(parent_id):
+                if grand_parent_id not in visited:
+                    queue.append(grand_parent_id)
+
+        node_id = parent_id
+
+    return ancestors
 
 # Finds reference pairs between text (source) and objects (target) and returns a {source_id: target_node} map.
 def create_reference_pairs(graph):
     target_nodes = defaultdict(list)
     label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm)\.?\s*(\d+(\.\d+)?)'
+
     for node_id, attrs in graph.nodes(data=True):
         if attrs.get('type') in ['figure', 'table', 'formula', 'algorithm']:
             match = re.search(label_pattern, attrs.get('text', ''), re.IGNORECASE)
@@ -163,12 +193,17 @@ def create_reference_pairs(graph):
                     kind = 'figure'
                 num = match.group(2)
                 key = f"{kind}:{num}"
+
+                attrs['id'] = node_id
                 target_nodes[key].append(attrs)
 
-    parent_map = _get_parent_section_map(graph)
-
     reference_pairs = {}
-    text_nodes = [attrs for _, attrs in graph.nodes(data=True) if attrs.get('type') == 'text']
+
+    text_nodes = []
+    for node_id, attrs in graph.nodes(data=True):
+        if attrs.get('type') == 'text':
+            attrs['id'] = node_id
+            text_nodes.append(attrs)
 
     for source_node in text_nodes:
         ref_string = source_node.get('text', '')
@@ -185,20 +220,36 @@ def create_reference_pairs(graph):
                 continue
 
             best_match = None
-            if len(candidates) > 1:
-                source_parent = parent_map.get(source_node['id'])
 
-                if source_parent:
-                    for candidate in candidates:
-                        if parent_map.get(candidate['id']) == source_parent:
-                            best_match = candidate
-                            break
-
-                if not best_match:
-                    best_match = min(candidates, key=lambda c: abs(c['page'] - source_node['page']))
-
-            else:
+            if len(candidates) == 1:
                 best_match = candidates[0]
+
+            elif len(candidates) > 1:
+                source_ancestors = _get_hierarchical_ancestors(graph, source_node['id'])
+                source_sections = source_ancestors.get('paragraph_title', set())
+                source_docs = source_ancestors.get('doc_title', set())
+
+                priority_matches = []
+
+                for candidate in candidates:
+                    candidate_ancestors = _get_hierarchical_ancestors(graph, candidate['id'])
+
+                    common_sections = source_sections.intersection(candidate_ancestors.get('paragraph_title', set()))
+                    common_docs = source_docs.intersection(candidate_ancestors.get('doc_title', set()))
+
+                    if common_sections:
+                        priority_matches.append((1, candidate))
+                    elif common_docs:
+                        priority_matches.append((2, candidate))
+                    else:
+                        priority_matches.append((3, candidate))
+
+                if priority_matches:
+                    sorted_matches = sorted(priority_matches, key=lambda item: item[0])
+                    best_priority = sorted_matches[0][0]
+
+                    top_candidates = [c for p, c in sorted_matches if p == best_priority]
+                    best_match = min(top_candidates, key=lambda c: abs(c['page'] - source_node['page']))
 
             if best_match:
                 reference_pairs[source_node['id']] = best_match
@@ -262,8 +313,7 @@ def save_graph_to_img(graph: nx.Graph):
 
     edge_color_map = {
         'hierarchical': 'black',
-        'spatial': 'darkgray',
-        'ref:figure': 'red'
+        'spatial': 'darkgray'
     }
 
     node_colors = [node_color_map.get(graph.nodes[n]['type'], 'gray') for n in graph.nodes()]
