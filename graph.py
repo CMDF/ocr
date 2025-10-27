@@ -6,6 +6,7 @@ import json
 from networkx.readwrite import json_graph
 import matplotlib.pyplot as plt
 
+# Transforms raw data into a list of graph node dictionaries.
 def load_and_transform_data(data):
     transformed_results = []
 
@@ -51,40 +52,21 @@ VALID_NODE_TYPES = [
 ]
 IGNORED_NODE_TYPES = ["header", "footer", "header_image", "footer_image", "seal"]
 
-def get_node_center(node):
+# Returns the center coordinates (x, y) of a node's bounding box (bbox).
+def _get_node_center(node):
     bbox = node['bbox']
     center_x = (bbox[0] + bbox[2]) / 2
     center_y = (bbox[1] + bbox[3]) / 2
     return center_x, center_y
 
-def get_distance(node1, node2):
-    x1, y1 = get_node_center(node1)
-    x2, y2 = get_node_center(node2)
+# Calculates the Euclidean distance between the centers of two nodes.
+def _get_distance(node1, node2):
+    x1, y1 = _get_node_center(node1)
+    x2, y2 = _get_node_center(node2)
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-def extract_label_num(node):
-    text = node.get("text", "")
-    match = re.search(r'(figure|fig|table|formula|algorithm)\.?\s*(\d+)', text, re.IGNORECASE)
-    if match:
-        kind = match.group(1).lower()
-        if kind == 'fig':
-            kind = 'figure'
-        num = match.group(2)
-        return {"kind": kind, "num": num}
-    return None
-
-def extract_references(text):
-    references = []
-    matches = re.finditer(r'(Figure|Fig|Table|Formula|Algorithm)\.?\s*(\d+)', text, re.IGNORECASE)
-    for match in matches:
-        kind = match.group(1).lower()
-        if kind == 'fig':
-            kind = 'figure'
-        num = match.group(2)
-        references.append({"kind": kind, "num": num, "key": f"{kind}:{num}"})
-    return references
-
-def add_sequence_edges(graph, page_nodes):
+# Adds 'sequence' edges by sorting nodes on a page by their y-coordinate.
+def _add_sequence_edges(graph, page_nodes):
     sorted_nodes = sorted(page_nodes, key=lambda n: n['bbox'][1])
     for i in range(len(sorted_nodes) - 1):
         node1 = sorted_nodes[i]
@@ -92,16 +74,17 @@ def add_sequence_edges(graph, page_nodes):
         if abs(node2['bbox'][1] - node1['bbox'][1]) < 0.2:
             graph.add_edge(node1['id'], node2['id'], type='sequence')
 
-def add_spatial_edges(graph, page_nodes):
+# Adds 'spatial' edges by finding the nearest 'up', 'down', 'left', and 'right' neighbor for each node on a page.
+def _add_spatial_edges(graph, page_nodes):
     for node1 in page_nodes:
-        center1_x, center1_y = get_node_center(node1)
+        center1_x, center1_y = _get_node_center(node1)
         neighbors = {'up': None, 'down': None, 'left': None, 'right': None}
         min_dists = {'up': float('inf'), 'down': float('inf'), 'left': float('inf'), 'right': float('inf')}
 
         for node2 in page_nodes:
             if node1['id'] == node2['id']: continue
-            center2_x, center2_y = get_node_center(node2)
-            dist = get_distance(node1, node2)
+            center2_x, center2_y = _get_node_center(node2)
+            dist = _get_distance(node1, node2)
 
             if center2_y < center1_y and dist < min_dists['up']:
                 min_dists['up'], neighbors['up'] = dist, node2
@@ -116,7 +99,8 @@ def add_spatial_edges(graph, page_nodes):
             if neighbor_node:
                 graph.add_edge(node1['id'], neighbor_node['id'], type='spatial', dir=direction)
 
-def add_hierarchical_edges(graph, all_nodes):
+# Adds parent-child 'hierarchical' edges based on document titles, sections, etc.
+def _add_hierarchical_edges(graph, all_nodes):
     sorted_nodes = sorted(all_nodes, key=lambda n: (n['page'], n['bbox'][1]))
     parent_stack = []
     for node in sorted_nodes:
@@ -133,49 +117,7 @@ def add_hierarchical_edges(graph, all_nodes):
             parent_node = parent_stack[-1]
             graph.add_edge(parent_node['id'], node['id'], type='hierarchical', rel='child')
 
-def add_reference_edges(graph, all_nodes):
-    target_nodes = defaultdict(list)
-
-    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm)\.?\s*(\d+(\.\d+)?)'
-
-    for node in all_nodes:
-        if node['type'] in ['figure', 'table', 'formula', 'algorithm']:
-            caption_text = node.get("text", "")
-            match = re.search(label_pattern, caption_text, re.IGNORECASE)
-
-            if match:
-                kind = match.group(1).lower()
-                if kind == 'fig':
-                    kind = 'figure'
-                num = match.group(2)
-                key = f"{kind}:{num}"
-                target_nodes[key].append(node)
-
-    for node in all_nodes:
-        if node['type'] == 'text':
-            ref_string = node.get("text", "")
-            match = re.match(label_pattern, ref_string.strip(), re.IGNORECASE)
-
-            if match:
-                kind = match.group(1).lower()
-                if kind == 'fig':
-                    kind = 'figure'
-                num = match.group(2)
-                ref_key = f"{kind}:{num}"
-
-                if ref_key in target_nodes:
-                    candidates = target_nodes[ref_key]
-                    best_target = min(
-                        candidates,
-                        key=lambda target: abs(target['page'] - node['page'])
-                    )
-                    graph.add_edge(
-                        node['id'],
-                        best_target['id'],
-                        type=f"ref:{kind}",
-                        attrs={'key': ref_key}
-                    )
-
+# Builds the final document graph by adding nodes and orchestrating edge creation (sequence, spatial, hierarchical).
 def build_document_graph(processed_data):
     G = nx.DiGraph()
     all_nodes = []
@@ -192,15 +134,15 @@ def build_document_graph(processed_data):
         nodes_by_page[node['page']].append(node)
 
     for page_num, page_nodes in nodes_by_page.items():
-        add_sequence_edges(G, page_nodes)
-        add_spatial_edges(G, page_nodes)
+        _add_sequence_edges(G, page_nodes)
+        _add_spatial_edges(G, page_nodes)
 
-    add_hierarchical_edges(G, all_nodes)
-    add_reference_edges(G, all_nodes)
+    _add_hierarchical_edges(G, all_nodes)
 
     return G
 
-def get_parent_section_map(graph):
+# Creates a {child_id: parent_id} map by traversing 'hierarchical' edges.
+def _get_parent_section_map(graph):
     parent_map = {}
     for source_id, dest_id, attrs in graph.edges(data=True):
         if attrs.get('type') == 'hierarchical':
@@ -208,6 +150,7 @@ def get_parent_section_map(graph):
 
     return parent_map
 
+# Finds reference pairs between text (source) and objects (target) and returns a {source_id: target_node} map.
 def create_reference_pairs(graph):
     target_nodes = defaultdict(list)
     label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm)\.?\s*(\d+(\.\d+)?)'
@@ -222,7 +165,7 @@ def create_reference_pairs(graph):
                 key = f"{kind}:{num}"
                 target_nodes[key].append(attrs)
 
-    parent_map = get_parent_section_map(graph)
+    parent_map = _get_parent_section_map(graph)
 
     reference_pairs = {}
     text_nodes = [attrs for _, attrs in graph.nodes(data=True) if attrs.get('type') == 'text']
@@ -262,16 +205,7 @@ def create_reference_pairs(graph):
 
     return reference_pairs
 
-def get_referenced_nodes(graph, node_id):
-    if not graph.has_node(node_id):
-        print("그래프에 존재하지 않는 노드입니다.")
-        return []
-    referenced_nodes = []
-    for _, destination_id, attrs in graph.edges(node_id, data=True):
-        if attrs.get('type', '').startswith('ref:'):
-            referenced_nodes.append(graph.nodes[destination_id])
-    return referenced_nodes
-
+# Finds and returns a list of nodes matching given key-value conditions.
 def find_nodes(graph, **conditions):
     found_nodes = []
 
@@ -294,25 +228,14 @@ def find_nodes(graph, **conditions):
 
     return found_nodes
 
-def print_graph_details(graph):
-    print("\n--- 📊 전체 그래프 상세 정보 ---")
-    print(f"총 노드 수: {graph.number_of_nodes()}")
-    print(f"총 엣지 수: {graph.number_of_edges()}")
-
-    print("\n--- 노드 리스트 (ID와 속성) ---")
-    for node_id, attrs in graph.nodes(data=True):
-        print(f"Node '{node_id}': {attrs}")
-
-    print("\n--- 엣지 리스트 (Source, Target, 속성) ---")
-    for src, dst, attrs in graph.edges(data=True):
-        print(f"Edge ('{src}' -> '{dst}'): {attrs}")
-
+# Serializes and saves a NetworkX graph to a JSON file.
 def save_graph_to_json(graph, filepath: str):
     graph_data = json_graph.node_link_data(graph, edges='edges')
 
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(graph_data, f, indent=4, ensure_ascii=False)
 
+# Loads and deserializes a NetworkX graph object from a JSON file.
 def load_graph_from_json(filepath='document_graph.json'):
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -324,6 +247,7 @@ def load_graph_from_json(filepath='document_graph.json'):
         print(f"오류: '{filepath}' 파일을 찾을 수 없습니다.")
         return None
 
+# Visualizes the graph using Matplotlib and saves it as 'graph.png'.
 def save_graph_to_img(graph: nx.Graph):
     plt.figure(figsize=(30, 30))
     pos = nx.spring_layout(graph, k=0.5, iterations=100)
