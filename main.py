@@ -3,48 +3,53 @@ from layout import *
 from ocr import *
 from crop import *
 import json
+import os
 
 if __name__ == "__main__":
-    layout_detection('/home/gyupil/Downloads/Test.pdf')
-    try:
-        with open('document_structure.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
+    graph = load_graph_from_json()
 
-        pages = data['pages']
+    if graph is None:
+        layout_detection('/home/gyupil/Downloads/Test.pdf')
+        try:
+            with open('document_structure.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
 
-        for page in pages:
-            boxes = page['boxes']
-            texts = [t for t in boxes if t['label'] == 'text']
+            pages = data['pages']
 
-            for text in texts:
-                coord = text['coordinate']
-                path = "/home/gyupil/mapping_test/Test/page_" + str(page['page_index'] + 1) + ".png"
-                paragraph = ocr(crop_image_by_bbox(path, coord))
-                found, figure = find_figure_reference(paragraph)
-                if found:
-                    text['text'] = figure
+            for page in pages:
+                boxes = page['boxes']
+                texts = [t for t in boxes if t['label'] == 'text']
 
-        with open('document_structure.json', 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+                for text in texts:
+                    coord = text['coordinate']
+                    path = "/home/gyupil/mapping_test/Test/page_" + str(page['page_index'] + 1) + ".png"
+                    paragraph = ocr(crop_image_by_bbox(path, coord))
+                    found, figure = find_figure_reference(paragraph)
+                    if found:
+                        text['text'] = figure
 
-    except FileNotFoundError:
-        print("입력 파일을 찾을 수 없습니다.")
-    except Exception as e:
-        print("처리 중 오류가 발생했습니다 - ", e)
+            with open('document_structure.json', 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
 
-    try:
-        with open('document_structure.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        except FileNotFoundError:
+            print("입력 파일을 찾을 수 없습니다.")
+        except Exception as e:
+            print("처리 중 오류가 발생했습니다 - ", e)
 
-        graph = build_document_graph(load_and_transform_data(data))
-        pairs = create_reference_pairs(graph)
-        save_graph_to_json(graph, 'document_graph.json')
+        try:
+            with open('document_structure.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
 
-    except FileNotFoundError:(
-        print("파일을 찾을 수 없습니다."))
-    except Exception as e:(
-        print("오류가 발생했습니다 - ", e))
+            graph = build_document_graph(load_and_transform_data(data))
+            save_graph_to_json(graph, 'document_graph.json')
+            os.remove('document_structure.json')
 
+        except FileNotFoundError:
+            print("파일을 찾을 수 없습니다.")
+        except Exception as e:
+            print("오류가 발생했습니다 - ", e)
+
+    pairs = create_reference_pairs(graph)
     ref_nodes = find_nodes(graph, type='text', text=lambda t:t)
     for node in ref_nodes:
         print("ID: {} | {} in page {}".format(node['id'], node['text'], node['page']))
