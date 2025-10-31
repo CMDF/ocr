@@ -1,8 +1,9 @@
 import spacy
 import sys
 import joblib
+from pathlib import Path
 
-MODEL_FILE = 'figure_model.joblib'
+MODEL_FILE = Path(__file__).parent/'artifacts'/'figure_model.joblib'
 
 try:
     nlp = spacy.load("en_core_web_sm")
