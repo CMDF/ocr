@@ -1,4 +1,3 @@
-import math
 from ocr import *
 from crop import *
 

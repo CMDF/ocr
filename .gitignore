@@ -11,7 +11,6 @@ service/models/artifacts/
 service/core/*.json
 service/core/*.png
 service/core/main.py
-service/core/pdf2img.py
 service/core/*/
 *.conll
 
