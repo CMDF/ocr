@@ -4,9 +4,10 @@ from sklearn_crfsuite import metrics
 import spacy
 import sys
 import joblib
+from pathlib import Path
 
-CONLL_FILE = '/home/gyupil/Downloads/project-1-at-2025-10-31-04-58-f27d2496.conll'
-MODEL_FILE = 'figure_model.joblib'
+CONLL_FILE = 'project-1-at-2025-10-31-04-58-f27d2496.conll'
+MODEL_FILE = Path(__file__).parent.parent/"service"/"models"/"artifacts"/"figure_model.joblib"
 
 try:
     nlp = spacy.load("en_core_web_sm")

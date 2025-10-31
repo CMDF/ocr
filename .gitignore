@@ -8,6 +8,13 @@ service/models/artifacts/
 *.h5
 *.onnx
 
+service/core/*.json
+service/core/*.png
+service/core/main.py
+service/core/pdf2img.py
+service/core/*/
+*.conll
+
 .venv/
 venv/
 env/

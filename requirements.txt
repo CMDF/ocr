@@ -1,0 +1,9 @@
+opencv-python
+paddleocr
+pdf2image
+spacy
+scikit-learn
+sklearn-crfsuite
+joblib
+matplotlib
+networkx
