@@ -1,8 +1,6 @@
-from paddleocr import TextRecognition
 from paddleocr import PaddleOCR
 import cv2
 
-model = TextRecognition(model_name="PP-OCRv5_server_rec")
 ocr_m = PaddleOCR(use_doc_unwarping=False,
                   use_doc_orientation_classify=False,
                   use_textline_orientation=False,

@@ -1,5 +1,5 @@
-from ocr import *
-from crop import *
+from service.core.ocr import *
+from service.core.crop import *
 
 def _calculate_distance(box1, box2):
     coord1 = box1['coordinate']

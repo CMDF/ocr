@@ -1,5 +1,5 @@
 from paddleocr import LayoutDetection
-from pre import *
+from service.core.pre import *
 import json
 
 def layout_detection(path):

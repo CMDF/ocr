@@ -35,7 +35,7 @@ def convert_pdf_to_png(pdf_path: str, output_folder: str = None):
 my_pdf_file = "/home/gyupil/Downloads/Test.pdf"
 convert_pdf_to_png(my_pdf_file)
 
-crf = joblib.load(Path(__file__).parent.parent/"models"/"artifacts"/"figure_model.joblib")
+crf = joblib.load(Path(__file__).parent.parent/"service"/"models"/"artifacts"/"figure_model.joblib")
 
 if __name__ == "__main__":
     graph = load_graph_from_json()
@@ -54,7 +54,8 @@ if __name__ == "__main__":
 
                 for text in texts:
                     coord = text['coordinate']
-                    path = "/home/gyupil/mapping_test/Test/page_" + str(page['page_index'] + 1) + ".png"
+                    path = "/home/gyupil/ocr/service/core/Test/page_" + str(page['page_index'] + 1) + ".png"
+                    show(coord, path)
                     paragraph = ocr(crop_image_by_bbox(path, coord))
                     spans, _, _ = predict_from_text(paragraph, crf)
                     if len(spans) > 0:
