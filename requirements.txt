@@ -7,3 +7,7 @@ sklearn-crfsuite
 joblib
 matplotlib
 networkx
+fastapi
+uvicorn
+boto3
+python-dotenv
