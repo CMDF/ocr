@@ -20,12 +20,5 @@ def ocr(img):
     img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
 
     output = ocr_m.predict(input=img)
-    paragraph = ""
-    for res in output:
-        rec_texts = res['rec_texts']
-        for rec_text in rec_texts:
-            paragraph = paragraph + ' ' + rec_text
 
-    paragraph = paragraph[1:]
-    
-    return paragraph
+    return output

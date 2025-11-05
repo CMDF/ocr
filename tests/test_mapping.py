@@ -4,7 +4,7 @@ from service.core.ocr import *
 from service.core.crop import *
 import json
 from pathlib import Path
-from service.models.predict import predict_from_text
+from service.core.post import correct
 import joblib
 import os
 from pdf2image import convert_from_path
@@ -81,15 +81,15 @@ if __name__ == "__main__":
                 for text in texts:
                     coord = text['coordinate']
                     path = "/home/gyupil/ocr/tests/Test/page_" + str(page['page_index'] + 1) + ".png"
-                    paragraph = ocr(crop_image_by_bbox(path, coord))
-                    print(paragraph)
-                    draw_box_on_image(image_path=path, relative_coords=coord)
+                    # output = ocr(crop_image_by_bbox(path, coord))
+                    # paragraph = correct(output)
+                    # draw_box_on_image(image_path=path, relative_coords=coord)
                     # spans, _, _ = predict_from_text(paragraph, crf)
                     # if len(spans) > 0:
                     #     text['text'] = spans[0]
 
-            with open('document_structure.json', 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
+            # with open('document_structure.json', 'w', encoding='utf-8') as f:
+            #     json.dump(data, f, indent=4, ensure_ascii=False)
 
         except FileNotFoundError:
             print("입력 파일을 찾을 수 없습니다.")

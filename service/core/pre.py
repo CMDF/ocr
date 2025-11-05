@@ -12,6 +12,43 @@ def _calculate_distance(box1, box2):
     distance = math.sqrt((center1_x - center2_x) ** 2 + (center1_y - center2_y) ** 2)
     return distance
 
+def group_and_sort_by_proximity(items, y_tolerance=5):
+    if not items:
+        return []
+
+    text = items['rec_texts']
+    box = items['rec_boxes']
+    items = list(zip(text, box))
+
+    items.sort(key=lambda item: item[1][1])
+
+    lines = []
+
+    current_line_y_ref = items[0][1][1]
+    current_line = [items[0]]
+
+    for item in items[1:]:
+        y_value = item[1][1]
+
+        if abs(y_value - current_line_y_ref) <= y_tolerance:
+            current_line.append(item)
+            current_line_y_ref = sum(i[1][1] for i in current_line) / len(current_line)
+        else:
+            lines.append(current_line)
+            current_line = [item]
+            current_line_y_ref = item[1][1]
+
+    if current_line:
+        lines.append(current_line)
+
+    sorted_lines = []
+    for line in lines:
+        line.sort(key=lambda item: item[1][0])
+        for box in line:
+            sorted_lines.append(box)
+
+    return sorted_lines
+
 def group_image_with_caption(page_data):
     boxes = page_data.get('boxes', [])
     if not boxes:
@@ -40,10 +77,17 @@ def group_image_with_caption(page_data):
                          max(img_coord[2], title_coord[2]), max(img_coord[3], title_coord[3])]
             filename = "page_" + str(page_data['page_index'] + 1) + ".png"
             path = Path(__file__).parent.parent.parent/"tests"/"Test"/filename
-            print(title_coord)
+
+            figure_title_output = ocr(crop_image_by_bbox(str(path), title_coord))
+            figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
+
+            figure_title = ""
+            for res in figure_title_output:
+                figure_title = figure_title + res[0]
+            print(figure_title)
 
             merged_boxes.append({
-                "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': ocr(crop_image_by_bbox(str(path), title_coord))
+                "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': figure_title
             })
 
     unmatched_titles = [t for i, t in enumerate(title_boxes) if i not in used_title_indices]

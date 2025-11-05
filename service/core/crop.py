@@ -3,14 +3,10 @@ import matplotlib.pyplot as plt
 import math
 
 def crop_image_by_bbox(image_path: str, bbox: list):
-    l_padding = 20
-    r_padding = 29
-    u_padding = 9
-    d_padding = 8
-    l_padding = 0
-    r_padding = 0
-    u_padding = 0
-    d_padding = 0
+    l_padding = 40
+    r_padding = 59
+    u_padding = 17
+    d_padding = 16
 
     img = cv2.imread(str(image_path))
     if img is None:
