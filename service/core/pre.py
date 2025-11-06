@@ -1,5 +1,6 @@
 from service.core.ocr import *
 from service.core.crop import *
+from service.core.post import correct_segmentation_and_typos
 from pathlib import Path
 
 def _calculate_distance(box1, box2):
@@ -84,7 +85,7 @@ def group_image_with_caption(page_data):
             figure_title = ""
             for res in figure_title_output:
                 figure_title = figure_title + res[0]
-            print(figure_title)
+            print(correct_segmentation_and_typos(figure_title))
 
             merged_boxes.append({
                 "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': figure_title

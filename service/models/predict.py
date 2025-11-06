@@ -1,17 +1,10 @@
 import spacy
-import sys
 import joblib
 from pathlib import Path
 
 MODEL_FILE = Path(__file__).parent/'artifacts'/'figure_model.joblib'
-
-try:
-    nlp = spacy.load("en_core_web_sm")
-    print("spaCy 'en_core_web_sm' 모델 로드 성공 (예측용).")
-except OSError:
-    print("spaCy 모델 'en_core_web_sm'을 찾을 수 없습니다.")
-    print("터미널에서 'python -m spacy download en_core_web_sm'을 실행하세요.")
-    sys.exit(1)
+nlp = spacy.load("en_core_web_sm")
+crf = joblib.load(MODEL_FILE)
 
 def token2features(doc, i):
     token = doc[i]
@@ -98,38 +91,11 @@ def tags_to_spans(tokens, tags):
     return spans
 
 
-def predict_from_text(text, crf_model):
+def predict_from_text(text, crf_model=crf):
     doc = nlp(text)
     features = [token2features(doc, i) for i in range(len(doc))]
     tokens = [token.text for token in doc]
     predicted_tags = crf_model.predict([features])[0]
     spans = tags_to_spans(tokens, predicted_tags)
+
     return spans, tokens, predicted_tags
-
-
-if __name__ == "__main__":
-    try:
-        crf = joblib.load(MODEL_FILE)
-        print(f"모델을 '{MODEL_FILE}' 파일에서 성공적으로 불러왔습니다.")
-    except FileNotFoundError:
-        print(f"--- 에러 ---")
-        print(f"모델 파일 '{MODEL_FILE}'을(를) 찾을 수 없습니다.")
-        print(f"`train.py`를 먼저 실행하여 모델을 생성하세요.")
-        sys.exit(1)
-
-    test_sentences = [
-        "See the result in Figure 1.",
-        "This is shown in the second table (see Fig. 4b).",
-        "You can see from the very bottom of Figure 2.12 that the remainder is 101",
-        "The first chart (Appendix A.1) shows the full data.",
-        "This is not a reference, just a regular figure."
-    ]
-
-    print("\n--- 예측 결과 (로드된 모델) ---")
-
-    for text in test_sentences:
-        spans, tokens, tags = predict_from_text(text, crf)
-        print(f"\n입력 텍스트: '{text}'")
-        # print(f"토큰: {tokens}")  # (디버깅 시 주석 해제)
-        # print(f"태그: {tags}")    # (디버깅 시 주석 해제)
-        print(f"찾아낸 참조 구문: {spans}")

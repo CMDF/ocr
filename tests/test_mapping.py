@@ -81,10 +81,11 @@ if __name__ == "__main__":
                 for text in texts:
                     coord = text['coordinate']
                     path = "/home/gyupil/ocr/tests/Test/page_" + str(page['page_index'] + 1) + ".png"
-                    # output = ocr(crop_image_by_bbox(path, coord))
-                    # paragraph = correct(output)
+                    output = ocr(crop_image_by_bbox(path, coord))
+                    paragraph = correct(output[0])
+                    print(paragraph)
                     # draw_box_on_image(image_path=path, relative_coords=coord)
-                    # spans, _, _ = predict_from_text(paragraph, crf)
+                    # spans, _, _ = predict_from_text(paragraph)
                     # if len(spans) > 0:
                     #     text['text'] = spans[0]
 

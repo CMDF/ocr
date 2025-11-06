@@ -1,25 +1,33 @@
 from symspellpy import SymSpell, Verbosity
 from pathlib import Path
+import re
 import numpy as np
 
 sym_spell = SymSpell(max_dictionary_edit_distance=2,
                      prefix_length=7)
 
 dictionary_path = Path(__file__).parent.parent.parent/"data"/"en-80k.txt"
+sym_spell.load_dictionary(dictionary_path, term_index=0, count_index=1)
 
-try:
-    sym_spell.load_dictionary(dictionary_path, term_index=0, count_index=1)
-    print(f"'{dictionary_path}' 사전을 성공적으로 로드했습니다.")
-except Exception as e:
-    print(f"경고: '{dictionary_path}' 사전 로드 실패. {e}")
-
-def correct_segmentation_and_typos(raw_text: str, sym_spell_instance):
+def correct_segmentation_and_typos(raw_text: str, sym_spell_instance=sym_spell):
     if not raw_text:
         return ""
-    result = sym_spell_instance.word_segmentation(raw_text)
-    print(result.corrected_string)
 
-    return result.corrected_string
+    pattern = r'([a-zA-Z]+|[^a-zA-Z]+)'
+    tokens = re.findall(pattern, raw_text)
+
+    correct_tokens = []
+    for token in tokens:
+        if token.isalpha():
+            correct_token = sym_spell_instance.word_segmentation(token).corrected_string
+        else:
+            correct_token = token
+        correct_tokens.append(correct_token)
+
+    correct_tokens = [token.strip() for token in correct_tokens]
+    correct_tokens = [token for token in correct_tokens if token]
+
+    return ' '.join(correct_tokens)
 
 def correct(target, line_y_tolerance_ratio=0.3, space_threshold_ratio=0.35):
     rec_texts = target["rec_texts"]
@@ -77,4 +85,7 @@ def correct(target, line_y_tolerance_ratio=0.3, space_threshold_ratio=0.35):
 
             previous_box_x_max = current_box_x_max
 
-        correct_segmentation_and_typos(str(reconstructed_line_text), sym_spell)
+        final = correct_segmentation_and_typos(str(reconstructed_line_text), sym_spell)
+        corrected_lines.append(final)
+
+    return corrected_lines
