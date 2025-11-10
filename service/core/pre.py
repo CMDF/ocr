@@ -25,7 +25,10 @@ def group_and_sort_by_proximity(items, y_tolerance=5):
 
     lines = []
 
-    current_line_y_ref = items[0][1][1]
+    try:
+        current_line_y_ref = items[0][1][1]
+    except Exception as e:
+        raise e
     current_line = [items[0]]
 
     for item in items[1:]:
@@ -79,8 +82,16 @@ def group_image_with_caption(page_data):
             filename = "page_" + str(page_data['page_index'] + 1) + ".png"
             path = Path(__file__).parent.parent.parent/"tests"/"Test"/filename
 
-            figure_title_output = ocr(crop_image_by_bbox(str(path), title_coord))
-            figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
+            figure_area = crop_image_by_bbox(str(path), title_coord)
+            figure_title_output = ocr(figure_area)
+            try:
+                figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
+            except Exception as e:
+                show(path=str(path), coordinate=title_coord)
+                show(path=str(path), coordinate=img_coord)
+                show(path=str(path), coordinate=new_coord)
+                print(e)
+                exit(1)
 
             figure_title = ""
             for res in figure_title_output:

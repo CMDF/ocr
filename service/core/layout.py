@@ -38,7 +38,6 @@ def layout_detection(path):
                 coord[3]/height_px
             ]
             box["coordinate"] = coord
-
         processed_data_1 = group_image_with_caption(data)
         final_page_data = remove_nested_boxes(processed_data_1)
 
