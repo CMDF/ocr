@@ -80,7 +80,7 @@ def group_image_with_caption(page_data):
             new_coord = [min(img_coord[0], title_coord[0]), min(img_coord[1], title_coord[1]),
                          max(img_coord[2], title_coord[2]), max(img_coord[3], title_coord[3])]
             filename = "page_" + str(page_data['page_index'] + 1) + ".png"
-            path = Path(__file__).parent.parent.parent/"tests"/"Test"/filename
+            path = Path(__file__).parent.parent.parent/"data"/"temp"/"Test"/filename
 
             figure_area = crop_image_by_bbox(str(path), title_coord)
             figure_title_output = ocr(figure_area)
@@ -96,10 +96,10 @@ def group_image_with_caption(page_data):
             figure_title = ""
             for res in figure_title_output:
                 figure_title = figure_title + res[0]
-            print(correct_segmentation_and_typos(figure_title))
+            # print(correct_segmentation_and_typos(figure_title))
 
             merged_boxes.append({
-                "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': figure_title
+                "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': correct_segmentation_and_typos(figure_title)
             })
 
     unmatched_titles = [t for i, t in enumerate(title_boxes) if i not in used_title_indices]

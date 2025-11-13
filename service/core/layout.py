@@ -1,5 +1,6 @@
 from paddleocr import LayoutDetection
 from service.core.pre import *
+from pathlib import Path
 import json
 import fitz
 
@@ -51,7 +52,7 @@ def layout_detection(path):
     structured_document["total_pages"] = len(structured_document["pages"])
 
     try:
-        with open('document_structure.json', 'w', encoding='utf-8') as f:
+        with open(Path(__file__).parent.parent.parent/'data'/'temp'/'document_structure.json', 'w', encoding='utf-8') as f:
             json.dump(structured_document, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print("최종 파일 저장 중 에러 발생 - ", e)

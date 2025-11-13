@@ -1,16 +1,12 @@
-from service.api.models import TempModel
 from service.core.s3 import download_temp_file
 from service.core.layout import layout_detection
 from service.core.ocr import ocr
 from service.core.crop import crop_image_by_bbox
 from service.core.post import correct
 from pdf2image import convert_from_path
+from pathlib import Path
 import os
 import json
-from pprint import pprint
-
-def make_model():
-    return TempModel(name="TempModel")
 
 def download_pdf(bucket: str, object: str):
     try:
@@ -26,7 +22,7 @@ def _convert_pdf_to_png(pdf_path: str, output_folder: str = None):
         return
 
     if output_folder is None:
-        output_folder = 'Test'
+        output_folder = Path(__file__).parent.parent.parent/'data'/'temp'/'Test'
 
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -47,7 +43,7 @@ def extract_texts_from_pdf(pdf_path: str):
     layout_detection(pdf_path)
 
     try:
-        with open('document_structure.json', 'r', encoding='utf-8') as f:
+        with open(Path(__file__).parent.parent.parent/'data'/'temp'/'document_structure.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
 
         pages = data['pages']
@@ -62,15 +58,16 @@ def extract_texts_from_pdf(pdf_path: str):
 
             for text in texts:
                 coord = text['coordinate']
-                path = "/home/gyupil/ocr/service/api/Test/page_" + str(page['page_index'] + 1) + ".png"
-                output = ocr(crop_image_by_bbox(path, coord))
+                filename = "page_" + str(page['page_index'] + 1) + ".png"
+                path = Path(__file__).parent.parent.parent/'data'/'temp'/'Test'/filename
+                output = ocr(crop_image_by_bbox(str(path), coord))
                 lines = correct(output[0])
                 paragraph = ' '.join(lines)
                 page_text += paragraph
 
             for figure in figures:
                 coord = figure['coordinate']
-                figure_data = {'figure_box': coord, 'figure_type': 'figure'}
+                figure_data = {'page_num': page['page_index']+1,'figure_box': coord, 'figure_type': 'figure'}
                 figure_result.append(figure_data)
 
             page_data = {'page_num': page['page_index']+1, 'text': page_text}
@@ -78,13 +75,11 @@ def extract_texts_from_pdf(pdf_path: str):
 
         final_result = {'pages': text_result, 'figures': figure_result}
         result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
-        pprint(result_json)
-
         # os.removedirs('Test')
+
+        # os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/'document_structure.json')
 
         return result_json
 
     except FileNotFoundError:
         print("Invalid path")
-
-print(extract_texts_from_pdf('/home/gyupil/Downloads/Test.pdf'))
