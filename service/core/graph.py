@@ -200,6 +200,7 @@ def create_reference_pairs(graph):
                 target_nodes[key].append(attrs)
 
     reference_pairs = {}
+    pairs = []
 
     text_nodes = []
     for node_id, attrs in graph.nodes(data=True):
@@ -259,58 +260,14 @@ def create_reference_pairs(graph):
                         best_match = min(top_candidates, key=lambda c: abs(c['page'] - source_attrs['page']))
 
                 if best_match:
-                    reference_pairs[source_id] = best_match
+                    reference_pairs['id'] = source_id
+                    reference_pairs['page'] = source_attrs['page']
+                    reference_pairs['raw_text'] = ref_info['raw_text']
+                    reference_pairs['figure_text'] = ref_info['figure_text']
+                    reference_pairs['ref'] = best_match
+                    pairs.append(reference_pairs)
 
-    # for source_node in text_nodes:
-    #     ref_string = source_node.get('text', '')
-    #     match = re.match(label_pattern, ref_string.strip(), re.IGNORECASE)
-    #
-    #     if match:
-    #         kind, num = match.group(1).lower(), match.group(2)
-    #         if kind == 'fig':
-    #             kind = 'figure'
-    #         ref_key = f"{kind}:{num}"
-    #
-    #         candidates = target_nodes.get(ref_key, [])
-    #         if not candidates:
-    #             continue
-    #
-    #         best_match = None
-    #
-    #         if len(candidates) == 1:
-    #             best_match = candidates[0]
-    #
-    #         elif len(candidates) > 1:
-    #             source_ancestors = _get_hierarchical_ancestors(graph, source_node['id'])
-    #             source_sections = source_ancestors.get('paragraph_title', set())
-    #             source_docs = source_ancestors.get('doc_title', set())
-    #
-    #             priority_matches = []
-    #
-    #             for candidate in candidates:
-    #                 candidate_ancestors = _get_hierarchical_ancestors(graph, candidate['id'])
-    #
-    #                 common_sections = source_sections.intersection(candidate_ancestors.get('paragraph_title', set()))
-    #                 common_docs = source_docs.intersection(candidate_ancestors.get('doc_title', set()))
-    #
-    #                 if common_sections:
-    #                     priority_matches.append((1, candidate))
-    #                 elif common_docs:
-    #                     priority_matches.append((2, candidate))
-    #                 else:
-    #                     priority_matches.append((3, candidate))
-    #
-    #             if priority_matches:
-    #                 sorted_matches = sorted(priority_matches, key=lambda item: item[0])
-    #                 best_priority = sorted_matches[0][0]
-    #
-    #                 top_candidates = [c for p, c in sorted_matches if p == best_priority]
-    #                 best_match = min(top_candidates, key=lambda c: abs(c['page'] - source_node['page']))
-    #
-    #         if best_match:
-    #             reference_pairs[source_node['id']] = best_match
-
-    return reference_pairs
+    return pairs
 
 # Finds and returns a list of nodes matching given key-value conditions.
 def find_nodes(graph, **conditions):

@@ -13,6 +13,8 @@ service/core/*.png
 service/core/*/
 *.conll
 
+data/temp/
+
 .venv/
 venv/
 env/

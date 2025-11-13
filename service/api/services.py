@@ -80,9 +80,6 @@ def extract_infos_from_pdf(pdf_path: str):
             page_data = {'page_num': page['page_index']+1, 'text': page_text}
             text_result.append(page_data)
 
-        final_result = {'pages': text_result, 'figures': figure_result}
-        result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
-
         for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'temp'/'Test'):
             file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'temp'/'Test', file_name)
             os.remove(file_path)
@@ -93,9 +90,18 @@ def extract_infos_from_pdf(pdf_path: str):
         pairs = create_reference_pairs(graph)
 
         pair_result = []
-        # TODO: save pairs(by DB format)
+        for pair in pairs:
+            pair_data = {'figure_box': pair['ref']['bbox'],
+                         'figure_page': pair['ref']['page'],
+                         'page_num': pair['page'],
+                         'raw_text': pair['raw_text'],
+                         'figure_text': pair['figure_text']}
+            pair_result.append(pair_data)
 
         os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/'document_structure.json')
+
+        final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
+        result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
 
         return result_json
 
