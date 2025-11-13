@@ -63,32 +63,71 @@ def token2features(doc, i):
 
     return features
 
+class ReferenceInfo:
+    def __init__(self):
+        self.ref_info = []
+        self.raw_texts = []
+        self.section_info = []
+
+    def __repr__(self):
+        return (f"ReferenceInfo(\n"
+                f"  ref_info     = {self.ref_info},\n"
+                f"  raw_text     = {self.raw_texts},\n"
+                f"  section_info = {self.section_info}\n"
+                f")")
+
 def tags_to_spans(tokens, tags):
-    spans = []
+    output = ReferenceInfo()
     current_span_tokens = []
+
+    current_span_type = None
+
+    def save_current_span():
+        if current_span_tokens and current_span_type:
+            span_text = " ".join(current_span_tokens)
+
+            if current_span_type == 'REF':
+                output.ref_info.append(span_text)
+            elif current_span_type == 'SEC':
+                output.section_info.append(span_text)
+
+        current_span_tokens.clear()
 
     for i in range(len(tags)):
         tag = tags[i]
         token = tokens[i]
 
-        if tag == 'B-REF':
-            if current_span_tokens:
-                spans.append(" ".join(current_span_tokens))
-            current_span_tokens = [token]
+        if tag == 'B-FIG' or tag == 'B-TBL':
+            save_current_span()
+            current_span_tokens.append(token)
+            current_span_type = 'REF'
 
-        elif tag == 'I-REF':
-            if current_span_tokens:
+        elif tag == 'B-SEC':
+            save_current_span()
+            current_span_tokens.append(token)
+            current_span_type = 'SEC'
+
+        elif tag == 'I-FIG' or tag == 'I-TBL':
+            if current_span_type == 'REF':
                 current_span_tokens.append(token)
+            else:
+                save_current_span()
+                current_span_type = None
+
+        elif tag == 'I-SEC':
+            if current_span_type == 'SEC':
+                current_span_tokens.append(token)
+            else:
+                save_current_span()
+                current_span_type = None
 
         else:
-            if current_span_tokens:
-                spans.append(" ".join(current_span_tokens))
-            current_span_tokens = []
+            save_current_span()
+            current_span_type = None
 
-    if current_span_tokens:
-        spans.append(" ".join(current_span_tokens))
+    save_current_span()
 
-    return spans
+    return output
 
 
 def predict_from_text(text, crf_model=crf):
@@ -97,5 +136,7 @@ def predict_from_text(text, crf_model=crf):
     tokens = [token.text for token in doc]
     predicted_tags = crf_model.predict([features])[0]
     spans = tags_to_spans(tokens, predicted_tags)
+    if spans.ref_info:
+        spans.raw_texts.append(text)
 
     return spans, tokens, predicted_tags

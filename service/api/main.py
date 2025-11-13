@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from service.api.services import extract_texts_from_pdf
+from service.api.services import extract_infos_from_pdf
 
 app = FastAPI(
     title="Test API",
@@ -13,4 +13,4 @@ def read_root():
 
 @app.get("/pages")
 def read_pdf():
-    return extract_texts_from_pdf("/home/gyupil/Downloads/Test.pdf")
+    return extract_infos_from_pdf("/home/gyupil/Downloads/Test.pdf")

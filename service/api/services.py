@@ -1,20 +1,18 @@
-from service.core.s3 import download_temp_file
 from service.core.layout import layout_detection
 from service.core.ocr import ocr
 from service.core.crop import crop_image_by_bbox
 from service.core.post import correct
+from service.core.graph import build_document_graph
+from service.core.graph import load_and_transform_data
+from service.core.graph import create_reference_pairs
+from service.models.predict import predict_from_text
 from pdf2image import convert_from_path
 from pathlib import Path
 import os
 import json
+import spacy
 
-def download_pdf(bucket: str, object: str):
-    try:
-        with download_temp_file(bucket, object) as temp_file:
-            return temp_file
-    except Exception as e:
-        print(e)
-        raise ValueError({object})
+nlp = spacy.load("en_core_web_sm")
 
 def _convert_pdf_to_png(pdf_path: str, output_folder: str = None):
     if not os.path.exists(pdf_path):
@@ -38,7 +36,7 @@ def _convert_pdf_to_png(pdf_path: str, output_folder: str = None):
         save_path = os.path.join(output_folder, file_name)
         image.save(save_path, "PNG")
 
-def extract_texts_from_pdf(pdf_path: str):
+def extract_infos_from_pdf(pdf_path: str):
     _convert_pdf_to_png(pdf_path)
     layout_detection(pdf_path)
 
@@ -63,6 +61,15 @@ def extract_texts_from_pdf(pdf_path: str):
                 output = ocr(crop_image_by_bbox(str(path), coord))
                 lines = correct(output[0])
                 paragraph = ' '.join(lines)
+                if paragraph != "":
+                    doc = nlp(paragraph)
+                    sentences = list(doc.sents)
+                    for i, sentence in enumerate(sentences):
+                        output, _, _ = predict_from_text(sentence.text.strip())
+                        if output.ref_info:
+                            text['ref_info'] = {'figure_text':  output.ref_info,
+                                                'raw_text':     output.raw_texts,
+                                                'section_info': output.section_info}
                 page_text += paragraph
 
             for figure in figures:
@@ -75,9 +82,20 @@ def extract_texts_from_pdf(pdf_path: str):
 
         final_result = {'pages': text_result, 'figures': figure_result}
         result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
-        # os.removedirs('Test')
 
-        # os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/'document_structure.json')
+        for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'temp'/'Test'):
+            file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'temp'/'Test', file_name)
+            os.remove(file_path)
+
+        os.removedirs(Path(__file__).parent.parent.parent/'data'/'temp'/'Test')
+
+        graph = build_document_graph(load_and_transform_data(data))
+        pairs = create_reference_pairs(graph)
+
+        pair_result = []
+        # TODO: save pairs(by DB format)
+
+        os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/'document_structure.json')
 
         return result_json
 
