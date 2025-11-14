@@ -199,7 +199,6 @@ def create_reference_pairs(graph):
                 attrs['id'] = node_id
                 target_nodes[key].append(attrs)
 
-    reference_pairs = {}
     pairs = []
 
     text_nodes = []
@@ -260,12 +259,13 @@ def create_reference_pairs(graph):
                         best_match = min(top_candidates, key=lambda c: abs(c['page'] - source_attrs['page']))
 
                 if best_match:
-                    reference_pairs['id'] = source_id
-                    reference_pairs['page'] = source_attrs['page']
-                    reference_pairs['raw_text'] = ref_info['raw_text']
-                    reference_pairs['figure_text'] = ref_info['figure_text']
-                    reference_pairs['ref'] = best_match
-                    pairs.append(reference_pairs)
+                    pairs.append({
+                        'id': source_id,
+                        'page': source_attrs['page'],
+                        'raw_text': ref_info['raw_text'],
+                        'figure_text': ref_info['figure_text'],
+                        'ref': best_match
+                    })
 
     return pairs
 

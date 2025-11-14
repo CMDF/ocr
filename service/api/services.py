@@ -91,12 +91,13 @@ def extract_infos_from_pdf(pdf_path: str):
 
         pair_result = []
         for pair in pairs:
-            pair_data = {'figure_box': pair['ref']['bbox'],
-                         'figure_page': pair['ref']['page'],
-                         'page_num': pair['page'],
-                         'raw_text': pair['raw_text'],
-                         'figure_text': pair['figure_text']}
-            pair_result.append(pair_data)
+            pair_result.append({
+                'figure_box': pair['ref']['bbox'],
+                'figure_page': pair['ref']['page']-1,
+                'page_num': pair['page'],
+                'raw_text': pair['raw_text'],
+                'figure_text': pair['figure_text']
+            })
 
         os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/'document_structure.json')
 
@@ -107,3 +108,6 @@ def extract_infos_from_pdf(pdf_path: str):
 
     except FileNotFoundError:
         print("Invalid path")
+
+if __name__ == "__main__":
+    output = extract_infos_from_pdf('/home/gyupil/Downloads/Test.pdf')
