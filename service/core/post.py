@@ -41,7 +41,10 @@ def correct(target, line_y_tolerance_ratio=0.3, space_threshold_ratio=0.35):
     avg_line_height = np.mean([box[3] - box[1] for box, text in items])
     line_y_tolerance = avg_line_height * line_y_tolerance_ratio
 
-    current_line_y_center = (items[0][0][1] + items[0][0][3]) / 2.0
+    try:
+        current_line_y_center = (items[0][0][1] + items[0][0][3]) / 2.0
+    except Exception:
+        raise
     current_line = [items[0]]
 
     for item in items[1:]:
