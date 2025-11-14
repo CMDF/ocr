@@ -97,7 +97,7 @@ def extract_infos_from_pdf(pdf_path: str):
         for pair in pairs:
             pair_result.append({
                 'figure_box': pair['ref']['bbox'],
-                'figure_page': pair['ref']['page']-1,
+                'figure_page': pair['ref']['page'],
                 'page_num': pair['page'],
                 'raw_text': pair['raw_text'],
                 'figure_text': pair['figure_text']
