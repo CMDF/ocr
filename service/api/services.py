@@ -53,7 +53,7 @@ def extract_infos_from_pdf(pdf_path: str):
             page_text = ""
             boxes = page['boxes']
             texts = [t for t in boxes if t['label'] == 'text']
-            figures = [f for f in boxes if f['label'] == 'figure']
+            figures = [f for f in boxes if f['label'] in ['image', 'figure_title', 'table', 'figure', 'figure caption', 'table caption']]
 
             for text in texts:
                 coord = text['coordinate']
@@ -77,9 +77,9 @@ def extract_infos_from_pdf(pdf_path: str):
                 page_text += paragraph
 
             for figure in figures:
-                coord = figure['coordinate']
-                figure_data = {'page_num': page['page_index']+1,'figure_box': coord, 'figure_type': 'figure'}
-                figure_result.append(figure_data)
+                figure_result.append({'page_num': page['page_index']+1,
+                                      'figure_box': figure['coordinate'],
+                                      'figure_type': figure['label']})
 
             page_data = {'page_num': page['page_index']+1, 'text': page_text}
             text_result.append(page_data)

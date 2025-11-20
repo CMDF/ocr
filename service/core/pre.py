@@ -59,28 +59,31 @@ def group_image_with_caption(page_data):
         return page_data
 
     image_boxes = [b for b in boxes if b.get('label') == 'image']
-    title_boxes = [b for b in boxes if b.get('label') == 'figure_title']
-    other_boxes = [b for b in boxes if b.get('label') not in ['image', 'figure_title']]
+    table_boxes = [b for b in boxes if b.get('label') == 'table']
+    figure_boxes = [b for b in boxes if b.get('label') == 'figure']
+    target_boxes = image_boxes + table_boxes + figure_boxes
+    title_boxes = [b for b in boxes if b.get('label') in ['figure_title', 'figure caption', 'table caption']]
+    other_boxes = [b for b in boxes if b.get('label') not in ['image', 'figure_title', 'table', 'figure', 'figure caption', 'table caption']]
 
     merged_boxes = []
     used_title_indices = set()
 
-    for image_box in image_boxes:
+    for title_box in title_boxes:
         closest = min(
-            ((i, title, _calculate_distance(image_box, title)) for i, title in enumerate(title_boxes) if
+            ((i, target, _calculate_distance(title_box, target)) for i, target in enumerate(target_boxes) if
              i not in used_title_indices),
             key=lambda x: x[2],
             default=(None, None, float('inf'))
         )
 
         if closest[1]:
-            idx, title_box, _ = closest
+            idx, target_box, _ = closest
             used_title_indices.add(idx)
-            img_coord, title_coord = image_box['coordinate'], title_box['coordinate']
+            img_coord, title_coord = target_box['coordinate'], title_box['coordinate']
             new_coord = [min(img_coord[0], title_coord[0]), min(img_coord[1], title_coord[1]),
                          max(img_coord[2], title_coord[2]), max(img_coord[3], title_coord[3])]
             filename = "page_" + str(page_data['page_index'] + 1) + ".png"
-            path = Path(__file__).parent.parent.parent/"data"/"temp"/"Test"/filename
+            path = Path(__file__).parent.parent.parent / "data" / "temp" / "Test" / filename
 
             figure_area = crop_image_by_bbox(str(path), title_coord)
             figure_title_output = ocr(figure_area)
@@ -98,12 +101,57 @@ def group_image_with_caption(page_data):
                 figure_title = figure_title + res[0]
             # print(correct_segmentation_and_typos(figure_title))
 
+            def image_to_figure(a):
+                if a['label'] == 'image':
+                    return 'figure'
+                else:
+                    return a['label']
+
             merged_boxes.append({
-                "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': correct_segmentation_and_typos(figure_title)
+                "cls_id": 99, "label": image_to_figure(target_box), "score": target_box['score'], "coordinate": new_coord,
+                'text': correct_segmentation_and_typos(figure_title)
             })
 
-    unmatched_titles = [t for i, t in enumerate(title_boxes) if i not in used_title_indices]
-    final_boxes = other_boxes + merged_boxes + unmatched_titles
+    # for image_box in image_boxes:
+    #     closest = min(
+    #         ((i, title, _calculate_distance(image_box, title)) for i, title in enumerate(title_boxes) if
+    #          i not in used_title_indices),
+    #         key=lambda x: x[2],
+    #         default=(None, None, float('inf'))
+    #     )
+    #
+    #     if closest[1]:
+    #         idx, title_box, _ = closest
+    #         used_title_indices.add(idx)
+    #         img_coord, title_coord = image_box['coordinate'], title_box['coordinate']
+    #         new_coord = [min(img_coord[0], title_coord[0]), min(img_coord[1], title_coord[1]),
+    #                      max(img_coord[2], title_coord[2]), max(img_coord[3], title_coord[3])]
+    #         filename = "page_" + str(page_data['page_index'] + 1) + ".png"
+    #         path = Path(__file__).parent.parent.parent/"data"/"temp"/"Test"/filename
+    #
+    #         figure_area = crop_image_by_bbox(str(path), title_coord)
+    #         figure_title_output = ocr(figure_area)
+    #         try:
+    #             figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
+    #         except Exception as e:
+    #             show(path=str(path), coordinate=title_coord)
+    #             show(path=str(path), coordinate=img_coord)
+    #             show(path=str(path), coordinate=new_coord)
+    #             print(e)
+    #             exit(1)
+    #
+    #         figure_title = ""
+    #         for res in figure_title_output:
+    #             figure_title = figure_title + res[0]
+    #         # print(correct_segmentation_and_typos(figure_title))
+    #
+    #         merged_boxes.append({
+    #             "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': correct_segmentation_and_typos(figure_title)
+    #         })
+    unmatched_targets = [t for i, t in enumerate(target_boxes) if i not in used_title_indices]
+    for target in unmatched_targets:
+        target['label'] = 'None'
+    final_boxes = other_boxes + merged_boxes + unmatched_targets
 
     final_boxes.sort(key=lambda box: box['coordinate'][1])
 

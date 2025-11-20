@@ -20,7 +20,6 @@ def ocr(img):
     new_width = math.floor(img.shape[1] * scale_factor)
     new_height = math.floor(img.shape[0] * scale_factor)
     img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-    # img = correct_extreme_aspect_ratio(img)
 
     output = ocr_m.predict(input=img)
 
