@@ -33,6 +33,7 @@ __pycache__/
 
 Thumbs.db
 
+*.md
 *.log
 logs/
 
