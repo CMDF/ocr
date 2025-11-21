@@ -92,7 +92,7 @@ def group_and_sort_by_proximity(items, y_tolerance=5):
 
     return sorted_lines
 
-def group_image_with_caption(page_data):
+def group_image_with_caption(page_data: str, folder_name: str):
     boxes = page_data.get('boxes', [])
     if not boxes:
         return page_data
@@ -111,7 +111,7 @@ def group_image_with_caption(page_data):
     for title_box in title_boxes:
         title_coord = title_box['coordinate']
         filename = "page_" + str(page_data['page_index'] + 1) + ".png"
-        figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent/"data"/"temp"/"Test"/filename), title_coord))
+        figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename), title_coord))
         figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
         if not figure_title_output:
             continue

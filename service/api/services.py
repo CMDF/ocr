@@ -145,7 +145,7 @@ def extract_infos_from_pdf(pdf_path: str):
 
 if __name__ == "__main__":
     start = time.time()
-    output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
-    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Test2.pdf")
+    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
+    output = extract_infos_from_pdf("/home/gyupil/Downloads/Test2.pdf")
     interval = time.time() - start
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")
