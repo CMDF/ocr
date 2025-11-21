@@ -1,4 +1,4 @@
-from symspellpy import SymSpell, Verbosity
+from symspellpy import SymSpell
 from pathlib import Path
 import re
 import numpy as np
@@ -34,11 +34,13 @@ def correct(target, line_y_tolerance_ratio=0.3, space_threshold_ratio=0.35):
     rec_boxes = target["rec_boxes"]
 
     items = list(zip(rec_boxes, rec_texts))
-    items.sort(key=lambda item: item[0][1])
+    items.sort(key=lambda a: a[0][1])
 
     lines = []
-
-    avg_line_height = np.mean([box[3] - box[1] for box, text in items])
+    if [box[3] - box[1] for box, text in items]:
+        avg_line_height = np.mean([box[3] - box[1] for box, text in items])
+    else:
+        raise Exception
     line_y_tolerance = avg_line_height * line_y_tolerance_ratio
 
     try:
@@ -63,7 +65,7 @@ def correct(target, line_y_tolerance_ratio=0.3, space_threshold_ratio=0.35):
 
     corrected_lines = []
     for line in lines:
-        line.sort(key=lambda item: item[0][0])
+        line.sort(key=lambda a: a[0][0])
 
         reconstructed_line_text = ""
         previous_box_x_max = -1

@@ -39,8 +39,8 @@ def layout_detection(path):
                 coord[3]/height_px
             ]
             box["coordinate"] = coord
-        processed_data_1 = group_image_with_caption(data)
-        final_page_data = remove_nested_boxes(processed_data_1)
+        processed_data_1 = remove_nested_boxes(data)
+        final_page_data = group_image_with_caption(processed_data_1)
 
         structured_document["pages"].append({
             "page_index": final_page_data["page_index"],

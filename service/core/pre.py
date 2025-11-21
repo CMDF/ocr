@@ -13,6 +13,42 @@ def _calculate_distance(box1, box2):
     distance = math.sqrt((center1_x - center2_x) ** 2 + (center1_y - center2_y) ** 2)
     return distance
 
+def _group_adjacent_targets(boxes, distance_thresh):
+    if not boxes:
+        return []
+
+    merged_boxes = list(boxes)
+
+    while True:
+        was_merged_in_pass = False
+        i = 0
+        while i < len(merged_boxes):
+            j = i+1
+            while j < len(merged_boxes):
+                if _calculate_distance(merged_boxes[i], merged_boxes[i+1]) < distance_thresh:
+                    new_coord = [
+                        min(merged_boxes[i]['coordinate'][0], merged_boxes[i+1]['coordinate'][0]),
+                        min(merged_boxes[i]['coordinate'][1], merged_boxes[i+1]['coordinate'][1]),
+                        max(merged_boxes[i]['coordinate'][2], merged_boxes[i+1]['coordinate'][2]),
+                        max(merged_boxes[i]['coordinate'][3], merged_boxes[i+1]['coordinate'][3])
+                    ]
+
+                    merged_boxes[i]['coordinate'] = new_coord
+                    del merged_boxes[j]
+                    was_merged_in_pass = True
+                    break
+                else:
+                    j+=1
+            if was_merged_in_pass:
+                break
+            else:
+                i+=1
+
+        if not was_merged_in_pass:
+            break
+
+    return merged_boxes
+
 def group_and_sort_by_proximity(items, y_tolerance=5):
     if not items:
         return []
@@ -21,7 +57,10 @@ def group_and_sort_by_proximity(items, y_tolerance=5):
     box = items['rec_boxes']
     items = list(zip(text, box))
 
-    items.sort(key=lambda item: item[1][1])
+    if not text:
+        return []
+
+    items.sort(key=lambda a: a[1][1])
 
     lines = []
 
@@ -47,7 +86,7 @@ def group_and_sort_by_proximity(items, y_tolerance=5):
 
     sorted_lines = []
     for line in lines:
-        line.sort(key=lambda item: item[1][0])
+        line.sort(key=lambda a: a[1][0])
         for box in line:
             sorted_lines.append(box)
 
@@ -62,6 +101,7 @@ def group_image_with_caption(page_data):
     table_boxes = [b for b in boxes if b.get('label') == 'table']
     figure_boxes = [b for b in boxes if b.get('label') == 'figure']
     target_boxes = image_boxes + table_boxes + figure_boxes
+    target_boxes = _group_adjacent_targets(target_boxes, 0.5)
     title_boxes = [b for b in boxes if b.get('label') in ['figure_title', 'figure caption', 'table caption']]
     other_boxes = [b for b in boxes if b.get('label') not in ['image', 'figure_title', 'table', 'figure', 'figure caption', 'table caption']]
 
@@ -69,6 +109,13 @@ def group_image_with_caption(page_data):
     used_title_indices = set()
 
     for title_box in title_boxes:
+        title_coord = title_box['coordinate']
+        filename = "page_" + str(page_data['page_index'] + 1) + ".png"
+        figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent/"data"/"temp"/"Test"/filename), title_coord))
+        figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
+        if not figure_title_output:
+            continue
+
         closest = min(
             ((i, target, _calculate_distance(title_box, target)) for i, target in enumerate(target_boxes) if
              i not in used_title_indices),
@@ -79,27 +126,13 @@ def group_image_with_caption(page_data):
         if closest[1]:
             idx, target_box, _ = closest
             used_title_indices.add(idx)
-            img_coord, title_coord = target_box['coordinate'], title_box['coordinate']
+            img_coord = target_box['coordinate']
             new_coord = [min(img_coord[0], title_coord[0]), min(img_coord[1], title_coord[1]),
                          max(img_coord[2], title_coord[2]), max(img_coord[3], title_coord[3])]
-            filename = "page_" + str(page_data['page_index'] + 1) + ".png"
-            path = Path(__file__).parent.parent.parent / "data" / "temp" / "Test" / filename
-
-            figure_area = crop_image_by_bbox(str(path), title_coord)
-            figure_title_output = ocr(figure_area)
-            try:
-                figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
-            except Exception as e:
-                show(path=str(path), coordinate=title_coord)
-                show(path=str(path), coordinate=img_coord)
-                show(path=str(path), coordinate=new_coord)
-                print(e)
-                exit(1)
 
             figure_title = ""
             for res in figure_title_output:
                 figure_title = figure_title + res[0]
-            # print(correct_segmentation_and_typos(figure_title))
 
             def image_to_figure(a):
                 if a['label'] == 'image':
@@ -112,42 +145,6 @@ def group_image_with_caption(page_data):
                 'text': correct_segmentation_and_typos(figure_title)
             })
 
-    # for image_box in image_boxes:
-    #     closest = min(
-    #         ((i, title, _calculate_distance(image_box, title)) for i, title in enumerate(title_boxes) if
-    #          i not in used_title_indices),
-    #         key=lambda x: x[2],
-    #         default=(None, None, float('inf'))
-    #     )
-    #
-    #     if closest[1]:
-    #         idx, title_box, _ = closest
-    #         used_title_indices.add(idx)
-    #         img_coord, title_coord = image_box['coordinate'], title_box['coordinate']
-    #         new_coord = [min(img_coord[0], title_coord[0]), min(img_coord[1], title_coord[1]),
-    #                      max(img_coord[2], title_coord[2]), max(img_coord[3], title_coord[3])]
-    #         filename = "page_" + str(page_data['page_index'] + 1) + ".png"
-    #         path = Path(__file__).parent.parent.parent/"data"/"temp"/"Test"/filename
-    #
-    #         figure_area = crop_image_by_bbox(str(path), title_coord)
-    #         figure_title_output = ocr(figure_area)
-    #         try:
-    #             figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
-    #         except Exception as e:
-    #             show(path=str(path), coordinate=title_coord)
-    #             show(path=str(path), coordinate=img_coord)
-    #             show(path=str(path), coordinate=new_coord)
-    #             print(e)
-    #             exit(1)
-    #
-    #         figure_title = ""
-    #         for res in figure_title_output:
-    #             figure_title = figure_title + res[0]
-    #         # print(correct_segmentation_and_typos(figure_title))
-    #
-    #         merged_boxes.append({
-    #             "cls_id": 99, "label": "figure", "score": image_box['score'], "coordinate": new_coord, 'text': correct_segmentation_and_typos(figure_title)
-    #         })
     unmatched_targets = [t for i, t in enumerate(target_boxes) if i not in used_title_indices]
     for target in unmatched_targets:
         target['label'] = 'None'
@@ -157,36 +154,43 @@ def group_image_with_caption(page_data):
 
     result_data = page_data.copy()
     result_data['boxes'] = final_boxes
+
     return result_data
 
 def _is_contained(inner_box, outer_box):
     inner_coord = inner_box['coordinate']
     outer_coord = outer_box['coordinate']
 
-    is_x_contained = outer_coord[0] <= inner_coord[0] and inner_coord[2] <= outer_coord[2]
-    is_y_contained = outer_coord[1] <= inner_coord[1] and inner_coord[3] <= outer_coord[3]
+    is_x_contained = outer_coord[0]-0.0086 <= inner_coord[0] and inner_coord[2] <= outer_coord[2]+0.0086
+    is_y_contained = outer_coord[1]-0.0077 <= inner_coord[1] and inner_coord[3] <= outer_coord[3]+0.0077
 
     return is_x_contained and is_y_contained
 
 def remove_nested_boxes(page_data):
     boxes = page_data['boxes']
 
-    text_boxes = [box for box in boxes if box['label'] == 'text']
-    other_boxes = [box for box in boxes if box['label'] != 'text']
+    indices_to_remove = set()
 
-    boxes_to_keep = []
+    for i in range(len(boxes)):
+        for j in range(len(boxes)):
+            if i == j:
+                continue
 
-    for other_box in other_boxes:
-        is_nested = False
-        for text_box in text_boxes:
-            if _is_contained(other_box, text_box):
-                is_nested = True
-                break
+            if _is_contained(boxes[i], boxes[j]):
+                box_i_coord = boxes[i]['coordinate']
+                box_j_coord = boxes[j]['coordinate']
 
-        if not is_nested:
-            boxes_to_keep.append(other_box)
+                area_i = (box_i_coord[2] - box_i_coord[0]) * (box_i_coord[3] - box_i_coord[1])
+                area_j = (box_j_coord[2] - box_j_coord[0]) * (box_j_coord[3] - box_j_coord[1])
+                
+                if area_i < area_j:
+                    indices_to_remove.add(i)
+                elif area_i == area_j and i > j:
+                    indices_to_remove.add(i)
 
-    final_boxes = text_boxes + boxes_to_keep
+    boxes_to_keep = [box for i, box in enumerate(boxes) if i not in indices_to_remove]
+
+    final_boxes = boxes_to_keep
     final_boxes.sort(key=lambda box: box['coordinate'][1])
 
     result_data = page_data.copy()

@@ -1,6 +1,5 @@
 import math
 from paddleocr import PaddleOCR
-import matplotlib.pyplot as plt
 import cv2
 
 ocr_m = PaddleOCR(use_doc_unwarping=False,
@@ -22,9 +21,5 @@ def ocr(img):
     img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
 
     output = ocr_m.predict(input=img)
-
-    if not output[0]['rec_texts']:
-        plt.imshow(img)
-        plt.show()
 
     return output

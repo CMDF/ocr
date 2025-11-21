@@ -8,7 +8,6 @@ from service.core.graph import create_reference_pairs
 from service.models.predict import predict_from_text
 from pdf2image import convert_from_path
 from pathlib import Path
-import pprint
 import os
 import json
 import spacy
@@ -38,7 +37,7 @@ def _convert_pdf_to_png(pdf_path: str, output_folder: str = None):
         image.save(save_path, "PNG")
 
 def extract_infos_from_pdf(pdf_path: str):
-    _convert_pdf_to_png(pdf_path)
+    # _convert_pdf_to_png(pdf_path)
     layout_detection(pdf_path)
 
     try:
@@ -77,7 +76,7 @@ def extract_infos_from_pdf(pdf_path: str):
                 page_text += paragraph
 
             for figure in figures:
-                figure_result.append({'page_num': page['page_index']+1,
+                figure_result.append({'page_num': page['page_index'],
                                       'figure_box': figure['coordinate'],
                                       'figure_type': figure['label']})
 
@@ -114,5 +113,5 @@ def extract_infos_from_pdf(pdf_path: str):
         print("Invalid path")
 
 if __name__ == "__main__":
-    output = extract_infos_from_pdf('/home/gyupil/Downloads/Test2.pdf')
-    pprint.pp(output)
+    output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
+    print(output)
