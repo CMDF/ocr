@@ -1,6 +1,7 @@
 import cv2
 import matplotlib.pyplot as plt
 import math
+import os
 
 def crop_image_by_bbox(image_path: str, bbox: list):
     l_padding = 40
@@ -10,7 +11,7 @@ def crop_image_by_bbox(image_path: str, bbox: list):
 
     img = cv2.imread(str(image_path))
     if img is None:
-        print("파일을 찾을 수 없거나 열 수 없습니다.")
+        print(f">>> [Error] {os.path.basename(image_path)} not found.")
         return None
 
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

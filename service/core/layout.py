@@ -2,6 +2,7 @@ from paddleocr import LayoutDetection
 from service.core.pre import *
 from pathlib import Path
 import json
+import os
 import fitz
 
 def layout_detection(path):
@@ -50,9 +51,10 @@ def layout_detection(path):
     structured_document["pages"].sort(key=lambda p: p["page_index"])
 
     structured_document["total_pages"] = len(structured_document["pages"])
+    filename = os.path.basename(path).split(".")[0] + ".json"
 
     try:
-        with open(Path(__file__).parent.parent.parent/'data'/'temp'/'document_structure.json', 'w', encoding='utf-8') as f:
+        with open(Path(__file__).parent.parent.parent/'data'/'temp'/filename, 'w', encoding='utf-8') as f:
             json.dump(structured_document, f, indent=2, ensure_ascii=False)
     except Exception as e:
-        print("최종 파일 저장 중 에러 발생 - ", e)
+        print(">>> [Error] Failed to save structured json.")

@@ -299,18 +299,6 @@ def save_graph_to_json(graph, filepath: str):
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(graph_data, f, indent=4, ensure_ascii=False)
 
-# Loads and deserializes a NetworkX graph object from a JSON file.
-def load_graph_from_json(filepath='document_graph.json'):
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            if 'links' in data and 'edges' not in data:
-                data['edges'] = data.pop('links')
-            return json_graph.node_link_graph(data, edges='edges')
-    except FileNotFoundError:
-        print(f"오류: '{filepath}' 파일을 찾을 수 없습니다.")
-        return None
-
 # Visualizes the graph using Matplotlib and saves it as 'graph.png'.
 def save_graph_to_img(graph: nx.Graph):
     plt.figure(figsize=(30, 30))
