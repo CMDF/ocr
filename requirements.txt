@@ -14,3 +14,4 @@ sklearn-crfsuite
 spacy
 symspellpy
 uvicorn
+Pillow

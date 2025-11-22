@@ -14,6 +14,7 @@ service/core/*/
 *.conll
 
 data/temp/
+data/debug/
 
 .venv/
 venv/
