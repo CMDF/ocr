@@ -1,6 +1,6 @@
-from service.core.layout import layout_detection
+from service.core.layout import layout_detection, det_debug
 from service.core.ocr import ocr
-from service.core.crop import crop_image_by_bbox
+from service.core.crop import crop_image_by_bbox, show
 from service.core.post import correct
 from service.core.graph import build_document_graph
 from service.core.graph import load_and_transform_data
@@ -15,6 +15,7 @@ import time
 import fitz
 import concurrent.futures
 from functools import partial
+from config import debug
 
 nlp = spacy.load("en_core_web_sm")
 
@@ -25,7 +26,8 @@ def _convert_page_worker(page_num, pdf_path, output_folder, dpi, use_cropbox):
             dpi=dpi,
             first_page=page_num,
             last_page=page_num,
-            use_cropbox=use_cropbox
+            use_cropbox=use_cropbox,
+            grayscale=True
         )[0]
         file_name = f"page_{page_num}.png"
         save_path = os.path.join(output_folder, file_name)
@@ -81,13 +83,17 @@ def extract_infos_from_pdf(pdf_path: str):
             page_text = ""
             boxes = page['boxes']
             texts = [t for t in boxes if t['label'] == 'text']
-            figures = [f for f in boxes if f['label'] in ['image', 'figure_title', 'table', 'figure', 'figure caption', 'table caption']]
+            figures = [f for f in boxes if f['label'] in ['image', 'table', 'figure']]
 
             for text in texts:
                 coord = text['coordinate']
                 filename = "page_" + str(page['page_index'] + 1) + ".png"
                 path = Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename
-                output = ocr(crop_image_by_bbox(str(path), coord))
+                try:
+                    output = ocr(crop_image_by_bbox(str(path), coord))
+                except Exception:
+                    show(coord, str(path))
+                    exit(1)
                 try:
                     lines = correct(output[0])
                 except Exception:
@@ -138,6 +144,9 @@ def extract_infos_from_pdf(pdf_path: str):
         final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
         result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
 
+        if debug:
+            det_debug(final_result)
+
         return result_json
 
     except FileNotFoundError:
@@ -146,6 +155,8 @@ def extract_infos_from_pdf(pdf_path: str):
 if __name__ == "__main__":
     start = time.time()
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
-    output = extract_infos_from_pdf("/home/gyupil/Downloads/Test2.pdf")
+    output = extract_infos_from_pdf("/home/gyupil/Downloads/yoochan-exprace.pdf")
+    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Test.pdf")
+    print(output)
     interval = time.time() - start
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")

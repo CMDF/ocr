@@ -92,25 +92,29 @@ def group_and_sort_by_proximity(items, y_tolerance=5):
 
     return sorted_lines
 
-def group_image_with_caption(page_data: str, folder_name: str):
+def group_image_with_caption(page_data: dict, folder_name: str):
     boxes = page_data.get('boxes', [])
     if not boxes:
         return page_data
 
-    image_boxes = [b for b in boxes if b.get('label') == 'image']
-    table_boxes = [b for b in boxes if b.get('label') == 'table']
-    figure_boxes = [b for b in boxes if b.get('label') == 'figure']
-    target_boxes = image_boxes + table_boxes + figure_boxes
-    target_boxes = _group_adjacent_targets(target_boxes, 0.5)
-    title_boxes = [b for b in boxes if b.get('label') in ['figure_title', 'figure caption', 'table caption']]
-    other_boxes = [b for b in boxes if b.get('label') not in ['image', 'figure_title', 'table', 'figure', 'figure caption', 'table caption']]
+    image_boxes         = [b for b in boxes if b.get('label') == 'image']
+    table_boxes         = [b for b in boxes if b.get('label') == 'table']
+    figure_boxes        = [b for b in boxes if b.get('label') == 'figure']
+    algorithm_boxes     = [b for b in boxes if b.get('label') == 'algorithm']
+    title_boxes         = [b for b in boxes if b.get('label') in ['figure_title', 'figure_caption']]
+    table_title_boxes   = [b for b in boxes if b.get('label') in ['table_caption', 'table_title']]
+    other_boxes         = [b for b in boxes if b.get('label') not in ['image', 'figure_title', 'table', 'figure', 'figure_caption', 'table_caption', 'table_title']]
+
+    target_boxes = image_boxes + figure_boxes + algorithm_boxes
+    # table_boxes = _group_adjacent_targets(table_boxes, 0.5)
+    # target_boxes = _group_adjacent_targets(target_boxes, 0.5)
 
     merged_boxes = []
     used_title_indices = set()
 
     for title_box in title_boxes:
         title_coord = title_box['coordinate']
-        filename = "page_" + str(page_data['page_index'] + 1) + ".png"
+        filename = "page_" + str(page_data['page_index']+1) + ".png"
         figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename), title_coord))
         figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
         if not figure_title_output:
@@ -145,9 +149,49 @@ def group_image_with_caption(page_data: str, folder_name: str):
                 'text': correct_segmentation_and_typos(figure_title)
             })
 
-    unmatched_targets = [t for i, t in enumerate(target_boxes) if i not in used_title_indices]
+    # TODO: 이상한 figure title이 존재함... 뭔지 모름
+    # TODO: 세모, 체크 등 이상한 게 섞여있으면 문제되는 거 같음(색 문제인줄 알았는데 흑백으로 바꿔서 넣어도 똑같음)
+    # TODO: 일단 아래 페이지에 있는 애들이 문제인 것 까지는 알아냄
+    # TODO: 해결하시오
+    table_list = [0, 11, 13, 17]
+    if page_data['page_index'] not in table_list:
+        for table_title_box in table_title_boxes:
+            table_title_coord = table_title_box['coordinate']
+            filename = "page_" + str(page_data['page_index']+1) + ".png"
+            table_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename), table_title_coord))
+        # table_title_output = group_and_sort_by_proximity(table_title_output[0])
+        # if not table_title_output:
+        #     continue
+
+        # closest = min(
+        #     ((i, target, _calculate_distance(table_title_box, target)) for i, target in enumerate(table_boxes) if
+        #      i not in used_title_indices),
+        #     key=lambda x: x[2],
+        #     default=(None, None, float('inf'))
+        # )
+        #
+        # if closest[1]:
+        #     idx, table_box, _ = closest
+        #     used_title_indices.add(idx)
+        #     table_coord = table_box['coordinate']
+        #     new_coord = [min(table_coord[0], table_title_coord[0]), min(table_coord[1], table_title_coord[1]),
+        #                  max(table_coord[2], table_title_coord[2]), max(table_coord[3], table_title_coord[3])]
+        #
+        #     table_title = ""
+        #     for res in table_title_output:
+        #         table_title = table_title + res[0]
+        #
+        #     merged_boxes.append({
+        #         "cls_id": 99, "label": 'table', "score": table_box['score'], "coordinate": new_coord,
+        #         'text': correct_segmentation_and_typos(table_title)
+        #     })
+
+    unmatched_targets   = [t for i, t in enumerate(target_boxes) if i not in used_title_indices]
+    unmatched_tables    = [t for i, t in enumerate(table_boxes) if i not in used_title_indices]
     for target in unmatched_targets:
         target['label'] = 'None'
+    for table in unmatched_tables:
+        table['label'] = 'None'
     final_boxes = other_boxes + merged_boxes + unmatched_targets
 
     final_boxes.sort(key=lambda box: box['coordinate'][1])
