@@ -89,11 +89,7 @@ def extract_infos_from_pdf(pdf_path: str):
                 coord = text['coordinate']
                 filename = "page_" + str(page['page_index'] + 1) + ".png"
                 path = Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename
-                try:
-                    output = ocr(crop_image_by_bbox(str(path), coord))
-                except Exception:
-                    show(coord, str(path))
-                    exit(1)
+                output = ocr(crop_image_by_bbox(str(path), coord))
                 try:
                     lines = correct(output[0])
                 except Exception:
@@ -139,7 +135,8 @@ def extract_infos_from_pdf(pdf_path: str):
             })
 
         filename = os.path.basename(pdf_path).split(".")[0] + ".json"
-        os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/filename)
+        if not debug:
+            os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/filename)
 
         final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
         result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
