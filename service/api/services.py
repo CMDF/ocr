@@ -9,6 +9,7 @@ from service.models.predict import predict_from_text
 from pdf2image import convert_from_path
 from pathlib import Path
 import os
+import math
 import json
 import spacy
 import time
@@ -64,6 +65,24 @@ def _convert_pdf_to_png(pdf_path: str, output_folder: str = None):
     with concurrent.futures.ProcessPoolExecutor() as executor:
         list(executor.map(worker, range(1, page_count+1)))
 
+def find_start_line_for_string(lines, search_string):
+    paragraph = " ".join(lines)
+    start_index = paragraph.find(search_string)
+
+    if start_index == -1:
+        return -1
+
+    current_pos = 0
+    for i, line in enumerate(lines):
+        line_content_end_pos = current_pos + len(line)
+
+        if current_pos <= start_index < line_content_end_pos:
+            return i
+
+        current_pos += len(line) + 1
+        
+    return -1
+
 def extract_infos_from_pdf(pdf_path: str):
     folder_name = os.path.basename(pdf_path).split(".")[0]
 
@@ -86,6 +105,7 @@ def extract_infos_from_pdf(pdf_path: str):
             figures = [f for f in boxes if f['label'] in ['image', 'table', 'figure', 'chart', 'algorithm']]
 
             for text in texts:
+                text['ref_info'] = []
                 coord = text['coordinate']
                 filename = "page_" + str(page['page_index'] + 1) + ".png"
                 path = Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename
@@ -95,15 +115,28 @@ def extract_infos_from_pdf(pdf_path: str):
                 except Exception:
                     lines = [""]
                 paragraph = ' '.join(lines)
+
                 if paragraph != "":
+                    height = (coord[3] - coord[1])/len(lines)
                     doc = nlp(paragraph)
                     sentences = list(doc.sents)
                     for i, sentence in enumerate(sentences):
-                        output, _, _ = predict_from_text(sentence.text.strip())
-                        if output.ref_info:
-                            text['ref_info'] = {'figure_text':  output.ref_info,
-                                                'raw_text':     output.raw_texts,
-                                                'section_info': output.section_info}
+                        predict_output, _, _ = predict_from_text(sentence.text.strip())
+                        if predict_output.ref_info:
+                            for ref_info in predict_output.ref_info:
+                                line_no = find_start_line_for_string(lines, ref_info)
+                                num_char = len(lines[line_no])
+                                avg_char_width = (coord[2] - coord[0])/num_char
+                                # TODO: modify graph logic for new reference notice
+                                new_coord = [coord[0]+lines[line_no].find(ref_info)*avg_char_width,
+                                             coord[1]+line_no*height,
+                                             coord[0]+(lines[line_no].find(ref_info)+len(ref_info))*avg_char_width,
+                                             coord[1]+(line_no+1)*height]
+
+                                text['ref_info'].append({'figure_text':     ref_info,
+                                                         'raw_text':        predict_output.raw_texts,
+                                                         'section_info':    predict_output.section_info})
+
                 page_text += paragraph
 
             for figure in figures:
@@ -114,18 +147,18 @@ def extract_infos_from_pdf(pdf_path: str):
             page_data = {'page_num': page['page_index']+1, 'text': page_text}
             text_result.append(page_data)
 
-        graph = build_document_graph(load_and_transform_data(data))
-        pairs = create_reference_pairs(graph)
+        # graph = build_document_graph(load_and_transform_data(data))
+        # pairs = create_reference_pairs(graph)
 
-        pair_result = []
-        for pair in pairs:
-            pair_result.append({
-                'figure_box': pair['ref']['bbox'],
-                'figure_page': pair['ref']['page'],
-                'page_num': pair['page'],
-                'raw_text': pair['raw_text'],
-                'figure_text': pair['figure_text']
-            })
+        # pair_result = []
+        # for pair in pairs:
+        #     pair_result.append({
+        #         'figure_box': pair['ref']['bbox'],
+        #         'figure_page': pair['ref']['page'],
+        #         'page_num': pair['page'],
+        #         'raw_text': pair['raw_text'],
+        #         'figure_text': pair['figure_text']
+        #     })
 
         filename = os.path.basename(pdf_path).split(".")[0] + ".json"
         folder_name = os.path.basename(pdf_path).split(".")[0]
@@ -140,17 +173,13 @@ def extract_infos_from_pdf(pdf_path: str):
 
             os.removedirs(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name)
 
-        final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
-        result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
+        # final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
+        # result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
 
-        for text in final_result['pages']:
-            print("page ", text['page_num'])
-            print(text['text'])
-
-        if debug:
-            det_debug(final_result, folder_name)
-
-        return result_json
+        # if debug:
+        #     det_debug(final_result, folder_name)
+        #
+        # return result_json
 
     except FileNotFoundError:
         print(">>> [Error] Structured json file not found.")
@@ -159,6 +188,7 @@ if __name__ == "__main__":
     start = time.time()
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
     output = extract_infos_from_pdf("/home/gyupil/Downloads/yoochan-exprace.pdf")
+    # print(output)
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Test.pdf")
     interval = time.time() - start
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")
