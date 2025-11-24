@@ -83,7 +83,7 @@ def extract_infos_from_pdf(pdf_path: str):
             page_text = ""
             boxes = page['boxes']
             texts = [t for t in boxes if t['label'] == 'text']
-            figures = [f for f in boxes if f['label'] in ['image', 'table', 'figure']]
+            figures = [f for f in boxes if f['label'] in ['image', 'table', 'figure', 'chart', 'algorithm']]
 
             for text in texts:
                 coord = text['coordinate']
@@ -114,13 +114,6 @@ def extract_infos_from_pdf(pdf_path: str):
             page_data = {'page_num': page['page_index']+1, 'text': page_text}
             text_result.append(page_data)
 
-        folder_name = os.path.basename(pdf_path).split(".")[0]
-        for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name):
-            file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name, file_name)
-            os.remove(file_path)
-
-        os.removedirs(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name)
-
         graph = build_document_graph(load_and_transform_data(data))
         pairs = create_reference_pairs(graph)
 
@@ -135,14 +128,27 @@ def extract_infos_from_pdf(pdf_path: str):
             })
 
         filename = os.path.basename(pdf_path).split(".")[0] + ".json"
+        folder_name = os.path.basename(pdf_path).split(".")[0]
         if not debug:
             os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/filename)
+            for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name):
+                file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name, file_name)
+                os.remove(file_path)
+            for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'debug'):
+                file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'debug', file_name)
+                os.remove(file_path)
+
+            os.removedirs(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name)
 
         final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
         result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
 
+        for text in final_result['pages']:
+            print("page ", text['page_num'])
+            print(text['text'])
+
         if debug:
-            det_debug(final_result)
+            det_debug(final_result, folder_name)
 
         return result_json
 
@@ -154,6 +160,5 @@ if __name__ == "__main__":
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
     output = extract_infos_from_pdf("/home/gyupil/Downloads/yoochan-exprace.pdf")
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Test.pdf")
-    print(output)
     interval = time.time() - start
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")

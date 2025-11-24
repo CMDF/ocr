@@ -68,7 +68,7 @@ def layout_detection(path):
         print(f">>> [Error] Failed to save structured json.({e})")
 
 
-def det_debug(output: dict):
+def det_debug(output: dict, folder_name: str):
     def draw_bounding_box(image_path: str, rel_coord: list):
         try:
             with Image.open(image_path).convert("RGB") as img:
@@ -76,7 +76,7 @@ def det_debug(output: dict):
                 draw = ImageDraw.Draw(img)
                 bbox_coords = [(math.ceil(rel_coord[0] * width), math.ceil(rel_coord[1] * height)),
                                (math.ceil(rel_coord[2] * width), math.ceil(rel_coord[3] * height))]
-                draw.rectangle(bbox_coords, outline="black", width=3)
+                draw.rectangle(bbox_coords, outline="red", width=4)
                 img.save(image_path)
         except FileNotFoundError:
             print(f">>> Error: Image not found at {image_path}")
@@ -85,7 +85,7 @@ def det_debug(output: dict):
 
     figures = output['figures']
     for figure in figures:
-        filename = "yoochan-exprace_"+str(figure['page_num']) + "_res.png"
-        path = str(Path(__file__).parent.parent.parent/'data'/'debug'/filename)
+        filename = "page_"+str(figure['page_num']+1) + ".png"
+        path = str(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename)
         coord = figure['figure_box']
         draw_bounding_box(path, coord)

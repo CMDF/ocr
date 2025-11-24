@@ -23,7 +23,7 @@ def ocr(img):
 
     new_width = math.floor(width * scale_factor)
     new_height = math.floor(height * scale_factor)
-    img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+    img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
 
     try:
         output = ocr_m.predict(input=img)
@@ -32,7 +32,7 @@ def ocr(img):
         scale_factor /= 1.5
         new_width = math.floor(width * scale_factor)
         new_height = math.floor(height * scale_factor)
-        img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+        img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
         output = ocr_m.predict(input=img)
 
     return output
