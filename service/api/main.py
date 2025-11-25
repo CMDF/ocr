@@ -37,6 +37,9 @@ def read_pdf(bucket: S3model):
                        "s3_url": bucket.file_url}
         )
 
+    if not os.path.exists(Path(__file__).parent.parent.parent/"data"/"temp"):
+        os.makedirs(Path(__file__).parent.parent.parent/"data"/"temp")
+
     download_file_from_presigned_url(bucket.file_url, Path(__file__).parent.parent.parent/"data"/"temp"/filename)
 
     with gpu_lock:

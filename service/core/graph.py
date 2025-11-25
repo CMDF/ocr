@@ -184,7 +184,7 @@ def _get_hierarchical_ancestors(graph, node_id):
 # Finds reference pairs between text (source) and objects (target) and returns a {source_id: target_node} map.
 def create_reference_pairs(graph):
     target_nodes = defaultdict(list)
-    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm)\.?\s*(\d+(\.\d+)?)'
+    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm)\.?\s*(\d+(\.\d+)?|[A-Za-z]+)'
 
     for node_id, attrs in graph.nodes(data=True):
         if attrs.get('type') in ['image', 'table', 'figure', 'chart', 'algorithm']:
