@@ -2,7 +2,6 @@ from service.core.ocr import *
 from service.core.crop import *
 from service.core.post import correct_segmentation_and_typos
 from pathlib import Path
-import math
 
 def _calculate_distance(box1, box2):
     coord1 = box1['coordinate']
@@ -129,8 +128,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
             figure_title_output = [""]
 
         closest = min(
-            ((i, target, _calculate_distance(title_box, target)) for i, target in enumerate(target_boxes) if
-             i not in used_title_indices),
+            ((i, target, _calculate_distance(title_box, target)) for i, target in enumerate(target_boxes)),
             key=lambda x: x[2],
             default=(None, None, float('inf'))
         )

@@ -1,6 +1,6 @@
 from service.core.layout import layout_detection, det_debug
 from service.core.ocr import ocr
-from service.core.crop import crop_image_by_bbox, show
+from service.core.crop import crop_image_by_bbox
 from service.core.post import correct
 from service.core.graph import build_document_graph
 from service.core.graph import load_and_transform_data
@@ -9,7 +9,6 @@ from service.models.predict import predict_from_text
 from pdf2image import convert_from_path
 from pathlib import Path
 import os
-import math
 import json
 import spacy
 import time
@@ -105,7 +104,6 @@ def extract_infos_from_pdf(pdf_path: str):
             figures = [f for f in boxes if f['label'] in ['image', 'table', 'figure', 'chart', 'algorithm']]
 
             for text in texts:
-                text['ref_info'] = []
                 coord = text['coordinate']
                 filename = "page_" + str(page['page_index'] + 1) + ".png"
                 path = Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename
@@ -123,19 +121,20 @@ def extract_infos_from_pdf(pdf_path: str):
                     for i, sentence in enumerate(sentences):
                         predict_output, _, _ = predict_from_text(sentence.text.strip())
                         if predict_output.ref_info:
+                            if 'ref_info' not in text:
+                                text['ref_info'] = []
                             for ref_info in predict_output.ref_info:
                                 line_no = find_start_line_for_string(lines, ref_info)
                                 num_char = len(lines[line_no])
                                 avg_char_width = (coord[2] - coord[0])/num_char
-                                # TODO: modify graph logic for new reference notice
                                 new_coord = [coord[0]+lines[line_no].find(ref_info)*avg_char_width,
                                              coord[1]+line_no*height,
                                              coord[0]+(lines[line_no].find(ref_info)+len(ref_info))*avg_char_width,
                                              coord[1]+(line_no+1)*height]
-
-                                text['ref_info'].append({'figure_text':     ref_info,
-                                                         'raw_text':        predict_output.raw_texts,
-                                                         'section_info':    predict_output.section_info})
+                                text['ref_info'].append({'figure_text': ref_info,
+                                                         'text_box': new_coord,
+                                                         'raw_text': predict_output.raw_texts,
+                                                         'section_info': predict_output.section_info})
 
                 page_text += paragraph
 
@@ -144,21 +143,23 @@ def extract_infos_from_pdf(pdf_path: str):
                                       'figure_box': figure['coordinate'],
                                       'figure_type': figure['label']})
 
-            page_data = {'page_num': page['page_index']+1, 'text': page_text}
+            page_data = {'page_num': page['page_index'], 'text': page_text}
             text_result.append(page_data)
 
-        # graph = build_document_graph(load_and_transform_data(data))
-        # pairs = create_reference_pairs(graph)
 
-        # pair_result = []
-        # for pair in pairs:
-        #     pair_result.append({
-        #         'figure_box': pair['ref']['bbox'],
-        #         'figure_page': pair['ref']['page'],
-        #         'page_num': pair['page'],
-        #         'raw_text': pair['raw_text'],
-        #         'figure_text': pair['figure_text']
-        #     })
+        graph = build_document_graph(load_and_transform_data(data))
+        pairs = create_reference_pairs(graph)
+
+        pair_result = []
+        for pair in pairs:
+            pair_result.append({
+                'figure_box': pair['ref']['bbox'],
+                'figure_page': pair['ref']['page'],
+                'page_num': pair['page'],
+                'raw_text': pair['raw_text'],
+                'figure_text': pair['figure_text'],
+                'text_box': pair['text_box']
+            })
 
         filename = os.path.basename(pdf_path).split(".")[0] + ".json"
         folder_name = os.path.basename(pdf_path).split(".")[0]
@@ -173,13 +174,12 @@ def extract_infos_from_pdf(pdf_path: str):
 
             os.removedirs(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name)
 
-        # final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
-        # result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
+        final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
+        result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
 
-        # if debug:
-        #     det_debug(final_result, folder_name)
-        #
-        # return result_json
+        det_debug(final_result, folder_name)
+
+        return result_json
 
     except FileNotFoundError:
         print(">>> [Error] Structured json file not found.")
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     start = time.time()
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
     output = extract_infos_from_pdf("/home/gyupil/Downloads/yoochan-exprace.pdf")
-    # print(output)
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Test.pdf")
     interval = time.time() - start
+    print(output)
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")

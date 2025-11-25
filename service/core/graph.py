@@ -24,8 +24,8 @@ def load_and_transform_data(data):
             node['id'] = f"pg{page_index}_box{i}"
             node['type'] = box['label']
 
-            if box['cls_id'] == 99 and box['label'] == 'figure':
-                node['type'] = 'figure'
+            if box['cls_id'] == 99 and box['label'] in ['image', 'table', 'figure', 'chart', 'algorithm']:
+                node['type'] = box['label']
 
             node['page'] = page_index
             node['conf'] = box['score']
@@ -49,7 +49,7 @@ VALID_NODE_TYPES = [
     "doc_title", "paragraph_title", "section",
     "text", "abstract", "references", "sidebar_text",
     "formula", "algorithm",
-    "table", "figure",
+    "table", "figure", "chart", "image",
     "formula_number", "page_number", "number", "footnote", "chart_title"
 ]
 IGNORED_NODE_TYPES = ["header", "footer", "header_image", "footer_image", "seal"]
@@ -187,7 +187,7 @@ def create_reference_pairs(graph):
     label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm)\.?\s*(\d+(\.\d+)?)'
 
     for node_id, attrs in graph.nodes(data=True):
-        if attrs.get('type') in ['figure', 'table', 'formula', 'algorithm']:
+        if attrs.get('type') in ['image', 'table', 'figure', 'chart', 'algorithm']:
             match = re.search(label_pattern, attrs.get('text', ''), re.IGNORECASE)
             if match:
                 kind = match.group(1).lower()
@@ -209,9 +209,10 @@ def create_reference_pairs(graph):
 
     for source_id, source_attrs in graph.nodes(data=True):
         if 'ref_info' in source_attrs:
-            ref_info = source_attrs['ref_info']
+            ref_info_list = source_attrs['ref_info']
 
-            for figure_text in ref_info.get('figure_text', []):
+            for ref_info_item in ref_info_list:
+                figure_text = ref_info_item.get('figure_text')
                 match = re.match(label_pattern, figure_text.strip(), re.IGNORECASE)
                 if not match:
                     continue
@@ -262,8 +263,9 @@ def create_reference_pairs(graph):
                     pairs.append({
                         'id': source_id,
                         'page': source_attrs['page'],
-                        'raw_text': ref_info['raw_text'],
-                        'figure_text': ref_info['figure_text'],
+                        'raw_text': ref_info_item['raw_text'],
+                        'figure_text': ref_info_item['figure_text'],
+                        'text_box': ref_info_item['text_box'],
                         'ref': best_match
                     })
 

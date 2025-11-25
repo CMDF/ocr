@@ -67,8 +67,10 @@ def layout_detection(path):
     except Exception as e:
         print(f">>> [Error] Failed to save structured json.({e})")
 
-
-def det_debug(output: dict, folder_name: str):
+import img2pdf
+def det_debug(output: dict, folder_name: str, do: bool = debug):
+    if not do:
+        return
     def draw_bounding_box(image_path: str, rel_coord: list):
         try:
             with Image.open(image_path).convert("RGB") as img:
@@ -83,9 +85,25 @@ def det_debug(output: dict, folder_name: str):
         except Exception as e:
             print(f">>> An error occurred: {e}")
 
-    figures = output['figures']
-    for figure in figures:
-        filename = "page_"+str(figure['page_num']+1) + ".png"
+    images_path = str(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name)
+    imgs = [
+        os.path.join(images_path, f)
+        for f in os.listdir(images_path)
+        if f.lower().endswith(".png")
+    ]
+
+    for figure in output['figures']:
+        filename = "page_" + str(figure['page_num'] + 1) + ".png"
         path = str(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename)
         coord = figure['figure_box']
         draw_bounding_box(path, coord)
+    for pair in output['matches']:
+        filename = "page_" + str(pair['page_num'] + 1) + ".png"
+        path = str(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename)
+        coord = pair['text_box']
+        draw_bounding_box(path, coord)
+
+    imgs.sort(key=lambda p: int(((p.split('/')[-1]).split(".")[0]).split("_")[-1]))
+
+    with open(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/'output.pdf', "wb") as f:
+        f.write(img2pdf.convert(imgs))
