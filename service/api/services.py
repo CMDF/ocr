@@ -2,9 +2,7 @@ from service.core.layout import layout_detection, det_debug
 from service.core.ocr import ocr
 from service.core.crop import crop_image_by_bbox
 from service.core.post import correct
-from service.core.graph import build_document_graph
-from service.core.graph import load_and_transform_data
-from service.core.graph import create_reference_pairs
+from service.core.graph import build_document_graph, load_and_transform_data, create_reference_pairs
 from service.models.predict import predict_from_text
 from pdf2image import convert_from_path
 from pathlib import Path
@@ -61,7 +59,7 @@ def _convert_pdf_to_png(pdf_path: str, output_folder: str = None):
 
     worker = partial(_convert_page_worker, pdf_path=pdf_path, output_folder=output_folder, dpi=dpi, use_cropbox=use_cropbox)
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor() as executor:
         list(executor.map(worker, range(1, page_count+1)))
 
 def find_start_line_for_string(lines, search_string):
@@ -161,28 +159,31 @@ def extract_infos_from_pdf(pdf_path: str):
                 'text_box': pair['text_box']
             })
 
-        filename = os.path.basename(pdf_path).split(".")[0] + ".json"
         folder_name = os.path.basename(pdf_path).split(".")[0]
-        if not debug:
-            os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/filename)
-            for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name):
-                file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name, file_name)
-                os.remove(file_path)
-            for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'debug'):
-                file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'debug', file_name)
-                os.remove(file_path)
-
-            os.removedirs(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name)
-
         final_result = {'pages': text_result, 'figures': figure_result, 'matches': pair_result}
-        result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
 
         det_debug(final_result, folder_name)
+
+        result_json = json.dumps(final_result, ensure_ascii=False, indent=4)
 
         return result_json
 
     except FileNotFoundError:
         print(">>> [Error] Structured json file not found.")
+
+    finally:
+        filename = os.path.basename(pdf_path).split(".")[0] + ".json"
+        folder_name = os.path.basename(pdf_path).split(".")[0]
+        if not debug:
+            os.remove(Path(__file__).parent.parent.parent / 'data' / 'temp' / filename)
+            for file_name in os.listdir(Path(__file__).parent.parent.parent / 'data' / 'temp' / folder_name):
+                file_path = os.path.join(Path(__file__).parent.parent.parent / 'data' / 'temp' / folder_name, file_name)
+                os.remove(file_path)
+            for file_name in os.listdir(Path(__file__).parent.parent.parent / 'data' / 'debug'):
+                file_path = os.path.join(Path(__file__).parent.parent.parent / 'data' / 'debug', file_name)
+                os.remove(file_path)
+
+            os.removedirs(Path(__file__).parent.parent.parent / 'data' / 'temp' / folder_name)
 
 if __name__ == "__main__":
     start = time.time()

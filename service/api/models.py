@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
 
-class TempModel(BaseModel):
-    name: str
+class S3model(BaseModel):
+    file_url: str
+    timeout: int
