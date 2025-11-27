@@ -1,6 +1,7 @@
 import spacy
 import joblib
 from pathlib import Path
+import re
 
 MODEL_FILE = Path(__file__).parent/'artifacts'/'figure_model.joblib'
 nlp = spacy.load("en_core_web_sm")
@@ -68,12 +69,14 @@ class ReferenceInfo:
         self.ref_info = []
         self.raw_texts = []
         self.section_info = []
+        self.order_info = []
 
     def __repr__(self):
         return (f"ReferenceInfo(\n"
                 f"  ref_info     = {self.ref_info},\n"
                 f"  raw_text     = {self.raw_texts},\n"
                 f"  section_info = {self.section_info}\n"
+                f"  order_info   = {self.order_info}\n"
                 f")")
 
 def tags_to_spans(tokens, tags):
@@ -131,6 +134,9 @@ def tags_to_spans(tokens, tags):
 
 
 def predict_from_text(text, crf_model=crf):
+    ordinal_numbers = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth']
+    ordinal_number_pattern = r'\b\d+(st|nd|rd|th)\b'
+
     doc = nlp(text)
     features = [token2features(doc, i) for i in range(len(doc))]
     tokens = [token.text for token in doc]
@@ -139,4 +145,17 @@ def predict_from_text(text, crf_model=crf):
     if spans.ref_info:
         spans.raw_texts.append(text)
 
+        for ref_info in spans.ref_info:
+            for ordinal_number in ordinal_numbers:
+                if ordinal_number in ref_info:
+                    spans.order_info.append(ordinal_numbers.index(ordinal_number))
+            match = re.search(ordinal_number_pattern, ref_info, re.IGNORECASE)
+            if not spans.order_info and match:
+                spans.order_info.append(int(match.group(0))-1)
+
+
     return spans, tokens, predicted_tags
+
+if __name__ == '__main__':
+    output, _, _ = predict_from_text("See the table 1.", joblib.load(MODEL_FILE))
+    print(output)
