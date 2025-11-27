@@ -245,7 +245,7 @@ def create_reference_pairs(graph):
             target_nodes_list.append((sort_key, node_data))
 
     target_nodes_list.sort(key=lambda x: x[0])
-    if abs(target_nodes_list[0][1].get('bbox')[0] - target_nodes_list[1][1].get('bbox')[0]) > 0.35:
+    if abs(target_nodes_list[0][1].get('bbox')[0] - target_nodes_list[1][1].get('bbox')[0]) > 0.35 and abs(target_nodes_list[0][1].get('bbox')[1] - target_nodes_list[1][1].get('bbox')[1]) < 0.0001 and target_nodes_list[0][1].get('bbox')[1] != target_nodes_list[1][1].get('bbox')[1]:
         left_boxes = []
         right_boxes = []
         for target_nodes in target_nodes_list:

@@ -6,10 +6,11 @@ from pathlib import Path
 def _calculate_distance(box1, box2):
     coord1 = box1['coordinate']
     coord2 = box2['coordinate']
+
     if coord1[1] > coord2[3]:
-        return coord1[1] - coord2[3] + abs(coord1[0] - coord2[0])
+        return coord1[1] - coord2[3] + abs(coord1[0] - coord2[0]) + abs(coord1[2] - coord2[2])
     else:
-        return coord2[1] - coord1[3] + abs(coord1[0] - coord2[0])
+        return coord2[1] - coord1[3] + abs(coord1[0] - coord2[0]) + abs(coord1[2] - coord2[2])
 
 def _group_adjacent_targets(boxes):
     if not boxes:
@@ -193,7 +194,7 @@ def remove_nested_boxes(page_data):
     boxes.sort(key=lambda a: a['coordinate'][1])
     if not boxes:
         return page_data
-    if abs(boxes[0]['coordinate'][0] - boxes[1]['coordinate'][0]) > 0.35:
+    if abs(boxes[0]['coordinate'][0] - boxes[1]['coordinate'][0]) > 0.35 and abs(boxes[0]['coordinate'][1] - boxes[1]['coordinate'][1]) < 0.0001 and boxes[0]['coordinate'][1] != boxes[1]['coordinate'][1]:
         left_boxes = []
         right_boxes = []
         for box in boxes:
