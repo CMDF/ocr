@@ -32,6 +32,7 @@ async def read_pdf(bucket: S3model):
     temp_path = Path(__file__).parent.parent.parent/"data"/"temp"/filename
 
     if filename in processed_files:
+        print(">>> [INFO] This file has already been processed")
         return JSONResponse(
             status_code = status.HTTP_200_OK,
             content = {"message": "This file has already been processed.",
@@ -39,6 +40,7 @@ async def read_pdf(bucket: S3model):
         )
 
     if filename in processing_files:
+        print(">>> [INFO] This file has been processing")
         return JSONResponse(
             status_code = status.HTTP_200_OK,
             content = {"message": "This file has been processing.",
@@ -50,8 +52,11 @@ async def read_pdf(bucket: S3model):
     temp_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
+        print(">>> [INFO] Downloading file...")
         await asyncio.to_thread(download_file_from_presigned_url, bucket.file_url, temp_path)
+        print(">>> [INFO] Waiting a GPU lock...")
         async with gpu_lock:
+            print(">>> [INFO] GPU lock acquired. Processing...")
             output = await asyncio.get_running_loop().run_in_executor(
                 None,
                 extract_infos_from_pdf,
@@ -67,6 +72,7 @@ async def read_pdf(bucket: S3model):
         raise HTTPException(status_code=500, detail="Processing failed")
 
     finally:
+        print(">>> [INFO] Cleaning temporary files...")
         if filename in processing_files:
             processing_files.remove(filename)
 

@@ -163,7 +163,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
     final_boxes = other_boxes + merged_boxes + unmatched_targets
 
     final_boxes.sort(key=lambda a: a['coordinate'][1])
-    if abs(final_boxes[0]['coordinate'][0] - final_boxes[1]['coordinate'][0]) > 0.35:
+    if abs(final_boxes[0]['coordinate'][0] - final_boxes[1]['coordinate'][0]) > 0.35 and abs(final_boxes[0]['coordinate'][1] - final_boxes[1]['coordinate'][1]) < 0.0001 and final_boxes[0]['coordinate'][1] != final_boxes[1]['coordinate'][1]:
         left_boxes = []
         right_boxes = []
         for box in final_boxes:
@@ -194,7 +194,7 @@ def remove_nested_boxes(page_data):
     boxes.sort(key=lambda a: a['coordinate'][1])
     if not boxes:
         return page_data
-    if abs(boxes[0]['coordinate'][0] - boxes[1]['coordinate'][0]) > 0.35 and abs(boxes[0]['coordinate'][1] - boxes[1]['coordinate'][1]) < 0.0001 and boxes[0]['coordinate'][1] != boxes[1]['coordinate'][1]:
+    if len(boxes) > 2 and abs(boxes[0]['coordinate'][0] - boxes[1]['coordinate'][0]) > 0.35 and abs(boxes[0]['coordinate'][1] - boxes[1]['coordinate'][1]) < 0.0001 and boxes[0]['coordinate'][1] != boxes[1]['coordinate'][1]:
         left_boxes = []
         right_boxes = []
         for box in boxes:

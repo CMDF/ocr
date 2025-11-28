@@ -175,21 +175,21 @@ def extract_infos_from_pdf(pdf_path: str):
         filename = os.path.basename(pdf_path).split(".")[0] + ".json"
         folder_name = os.path.basename(pdf_path).split(".")[0]
         if not debug:
-            os.remove(Path(__file__).parent.parent.parent / 'data' / 'temp' / filename)
-            for file_name in os.listdir(Path(__file__).parent.parent.parent / 'data' / 'temp' / folder_name):
-                file_path = os.path.join(Path(__file__).parent.parent.parent / 'data' / 'temp' / folder_name, file_name)
+            os.remove(Path(__file__).parent.parent.parent/'data'/'temp'/filename)
+            for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name):
+                file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name, file_name)
                 os.remove(file_path)
-            for file_name in os.listdir(Path(__file__).parent.parent.parent / 'data' / 'debug'):
-                file_path = os.path.join(Path(__file__).parent.parent.parent / 'data' / 'debug', file_name)
+            for file_name in os.listdir(Path(__file__).parent.parent.parent/'data'/'debug'):
+                file_path = os.path.join(Path(__file__).parent.parent.parent/'data'/'debug', file_name)
                 os.remove(file_path)
 
-            os.removedirs(Path(__file__).parent.parent.parent / 'data' / 'temp' / folder_name)
+            os.removedirs(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name)
 
 if __name__ == "__main__":
     start = time.time()
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
-    # output = extract_infos_from_pdf("/home/gyupil/Downloads/yoochan-exprace.pdf")
-    output = extract_infos_from_pdf("/home/gyupil/Downloads/Test2.pdf")
+    output = extract_infos_from_pdf("/home/gyupil/Downloads/AI_04_Adversarial Search (Updated 250924).pdf")
+    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Test2.pdf")
     interval = time.time() - start
     print(output)
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")
