@@ -3,14 +3,18 @@ from service.core.crop import *
 from service.core.post import correct_segmentation_and_typos
 from pathlib import Path
 
-def _calculate_distance(box1, box2):
+def _calculate_distance(box1, box2, flag):
     coord1 = box1['coordinate']
     coord2 = box2['coordinate']
-
+    if flag:
+        if coord1[0] > coord2[2]:
+            return abs(coord1[1] - coord2[1]) + abs(coord1[3] - coord2[3])
+        else:
+            return abs(coord2[1] - coord1[1]) + abs(coord2[3] - coord1[3])
     if coord1[1] > coord2[3]:
-        return coord1[1] - coord2[3] + abs(coord1[0] - coord2[0]) + abs(coord1[2] - coord2[2])
+        return 2*(coord1[1] - coord2[3]) + abs(coord1[0] - coord2[0]) + abs(coord1[2] - coord2[2])
     else:
-        return coord2[1] - coord1[3] + abs(coord1[0] - coord2[0]) + abs(coord1[2] - coord2[2])
+        return 2*(coord2[1] - coord1[3]) + abs(coord1[0] - coord2[0]) + abs(coord1[2] - coord2[2])
 
 def _group_adjacent_targets(boxes):
     if not boxes:
@@ -107,9 +111,9 @@ def group_image_with_caption(page_data: dict, folder_name: str):
     title_boxes = []
     other_boxes = []
     for box in boxes:
-        if box.get('label') in ['image', 'table', 'figure', 'algorithm', 'chart']:
+        if box.get('label') in ['image', 'table', 'figure', 'algorithm', 'chart', 'formula']:
             target_boxes.append(box)
-        elif box.get('label') in ['figure_title', 'figure_caption', 'table_caption', 'table_title', 'chart_caption', 'chart_title']:
+        elif box.get('label') in ['figure_title', 'figure_caption', 'table_caption', 'table_title', 'chart_caption', 'chart_title', 'formula_number']:
             title_boxes.append(box)
         else:
             other_boxes.append(box)
@@ -122,14 +126,23 @@ def group_image_with_caption(page_data: dict, folder_name: str):
         #     continue
         title_coord = title_box['coordinate']
         filename = "page_" + str(page_data['page_index']+1) + ".png"
-        figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename), title_coord))
-        figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
+        if title_box['label'] != 'formula_number':
+            figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent / "data" / "temp" / folder_name / filename), title_coord))
+            figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
+        else:
+            figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent / "data" / "temp" / folder_name / filename), title_coord), True)
+
         if not figure_title_output[0]:
             show(title_coord, str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename))
             figure_title_output = [""]
 
+        if title_box['label'] == 'formula_number':
+            cal_flag = True
+        else:
+            cal_flag = False
+
         closest = min(
-            ((i, target, _calculate_distance(title_box, target)) for i, target in enumerate(target_boxes)),
+            ((i, target, _calculate_distance(title_box, target, cal_flag)) for i, target in enumerate(target_boxes)),
             key=lambda x: x[2],
             default=(None, None, float('inf'))
         )
@@ -142,8 +155,12 @@ def group_image_with_caption(page_data: dict, folder_name: str):
                          max(img_coord[2], title_coord[2]), max(img_coord[3], title_coord[3])]
 
             figure_title = ""
-            for res in figure_title_output:
-                figure_title = figure_title + res[0]
+            if title_box['label'] != 'formula_number':
+                for res in figure_title_output:
+                    figure_title = figure_title + res[0]
+            else:
+                for res in figure_title_output:
+                    figure_title = figure_title + res['rec_texts'][0]
 
             def image_to_figure(a):
                 if a['label'] == 'image':
@@ -163,17 +180,22 @@ def group_image_with_caption(page_data: dict, folder_name: str):
     final_boxes = other_boxes + merged_boxes + unmatched_targets
 
     final_boxes.sort(key=lambda a: a['coordinate'][1])
-    if abs(final_boxes[0]['coordinate'][0] - final_boxes[1]['coordinate'][0]) > 0.35 and abs(final_boxes[0]['coordinate'][1] - final_boxes[1]['coordinate'][1]) < 0.0001 and final_boxes[0]['coordinate'][1] != final_boxes[1]['coordinate'][1]:
-        left_boxes = []
-        right_boxes = []
-        for box in final_boxes:
-            if box['coordinate'][0] < 0.4:
-                left_boxes.append(box)
-            else:
-                right_boxes.append(box)
-        left_boxes.sort(key=lambda a: a['coordinate'][1])
-        right_boxes.sort(key=lambda a: a['coordinate'][1])
-        final_boxes = left_boxes + right_boxes
+    length_validation = len(final_boxes) > 3
+    if length_validation:
+        y_comparison_first_two = abs(final_boxes[0]['coordinate'][1] - final_boxes[1]['coordinate'][1]) < 0.0001 and final_boxes[0]['coordinate'][1] != final_boxes[1]['coordinate'][1]
+        y_comparison_next_two = abs(final_boxes[1]['coordinate'][1] - final_boxes[2]['coordinate'][1]) < 0.0001 and final_boxes[1]['coordinate'][1] != final_boxes[2]['coordinate'][1]
+
+        if not y_comparison_next_two and y_comparison_first_two:
+            left_boxes = []
+            right_boxes = []
+            for box in final_boxes:
+                if box['coordinate'][0] < 0.4:
+                    left_boxes.append(box)
+                else:
+                    right_boxes.append(box)
+            left_boxes.sort(key=lambda a: a['coordinate'][1])
+            right_boxes.sort(key=lambda a: a['coordinate'][1])
+            final_boxes = left_boxes + right_boxes
 
     result_data = page_data.copy()
     result_data['boxes'] = final_boxes
@@ -194,17 +216,21 @@ def remove_nested_boxes(page_data):
     boxes.sort(key=lambda a: a['coordinate'][1])
     if not boxes:
         return page_data
-    if len(boxes) > 2 and abs(boxes[0]['coordinate'][0] - boxes[1]['coordinate'][0]) > 0.35 and abs(boxes[0]['coordinate'][1] - boxes[1]['coordinate'][1]) < 0.0001 and boxes[0]['coordinate'][1] != boxes[1]['coordinate'][1]:
-        left_boxes = []
-        right_boxes = []
-        for box in boxes:
-            if box['coordinate'][0] < 0.4:
-                left_boxes.append(box)
-            else:
-                right_boxes.append(box)
-        left_boxes = _group_adjacent_targets(left_boxes)
-        right_boxes = _group_adjacent_targets(right_boxes)
-        boxes = left_boxes + right_boxes
+    length_validation = len(boxes) > 3
+    if length_validation:
+        y_comparison_first_two = abs(boxes[0]['coordinate'][1] - boxes[1]['coordinate'][1]) < 0.0001 and boxes[0]['coordinate'][1] != boxes[1]['coordinate'][1]
+        y_comparison_next_two = abs(boxes[1]['coordinate'][1] - boxes[2]['coordinate'][1]) < 0.0001 and boxes[1]['coordinate'][1] != boxes[2]['coordinate'][1]
+        if y_comparison_first_two and not y_comparison_next_two:
+            left_boxes = []
+            right_boxes = []
+            for box in boxes:
+                if box['coordinate'][0] < 0.4:
+                    left_boxes.append(box)
+                else:
+                    right_boxes.append(box)
+            left_boxes = _group_adjacent_targets(left_boxes)
+            right_boxes = _group_adjacent_targets(right_boxes)
+            boxes = left_boxes + right_boxes
     else:
         boxes = _group_adjacent_targets(boxes)
 

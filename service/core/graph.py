@@ -70,6 +70,21 @@ def _get_distance(node1, node2):
 # Adds 'sequence' edges by sorting nodes on a page by their y-coordinate.
 def _add_sequence_edges(graph, page_nodes):
     sorted_nodes = sorted(page_nodes, key=lambda n: n['bbox'][1])
+    # length_validation = len(sorted_nodes) > 3
+    # if length_validation:
+    #     y_comparison_first_two = abs(sorted_nodes[0]['bbox'][1] - sorted_nodes[1]['bbox'][1]) < 0.0001 and sorted_nodes[0]['bbox'][1] != sorted_nodes[1]['bbox'][1]
+    #     y_comparison_next_two = abs(sorted_nodes[1]['bbox'][1] - sorted_nodes[2]['bbox'][1]) < 0.0001 and sorted_nodes[1]['bbox'][1] != sorted_nodes[2]['bbox'][1]
+    #
+    #     if y_comparison_first_two and not y_comparison_next_two:
+    #         left_boxes = []
+    #         right_boxes = []
+    #         for target_nodes in sorted_nodes:
+    #             if sorted_nodes[0].get('bbox')[0] < 0.4:
+    #                 left_boxes.append(target_nodes)
+    #             else:
+    #                 right_boxes.append(target_nodes)
+    #         sorted_nodes = left_boxes + right_boxes
+
     for i in range(len(sorted_nodes) - 1):
         node1 = sorted_nodes[i]
         node2 = sorted_nodes[i + 1]
@@ -245,19 +260,20 @@ def create_reference_pairs(graph):
             target_nodes_list.append((sort_key, node_data))
 
     target_nodes_list.sort(key=lambda x: x[0])
-    length_validation = len(target_nodes_list) > 2
-    different_column = length_validation and abs(target_nodes_list[0][1].get('bbox')[0] - target_nodes_list[1][1].get('bbox')[0]) > 0.35
-    same_height = length_validation and abs(target_nodes_list[0][1].get('bbox')[1] - target_nodes_list[1][1].get('bbox')[1]) < 0.0001 and target_nodes_list[0][1].get('bbox')[1] != target_nodes_list[1][1].get('bbox')[1]
+    length_validation = len(target_nodes_list) > 3
+    if length_validation:
+        y_comparison_first_two = abs(target_nodes_list[0][1]['bbox'][1] - target_nodes_list[1][1]['bbox'][1]) < 0.0001 and target_nodes_list[0][1]['bbox'][1] != target_nodes_list[1][1]['bbox'][1]
+        y_comparison_next_two = abs(target_nodes_list[1][1]['bbox'][1] - target_nodes_list[2][1]['bbox'][1]) < 0.0001 and target_nodes_list[1][1]['bbox'][1] != target_nodes_list[2][1]['bbox'][1]
 
-    if different_column and same_height:
-        left_boxes = []
-        right_boxes = []
-        for target_nodes in target_nodes_list:
-            if target_nodes_list[0][1].get('bbox')[0] < 0.4:
-                left_boxes.append(target_nodes)
-            else:
-                right_boxes.append(target_nodes)
-        target_nodes_list = left_boxes + right_boxes
+        if y_comparison_first_two and not y_comparison_next_two:
+            left_boxes = []
+            right_boxes = []
+            for target_nodes in target_nodes_list:
+                if target_nodes_list[0][1].get('bbox')[0] < 0.4:
+                    left_boxes.append(target_nodes)
+                else:
+                    right_boxes.append(target_nodes)
+            target_nodes_list = left_boxes + right_boxes
 
     sorted_targets = [item[1] for item in target_nodes_list]
     targets_by_section = defaultdict(list)
@@ -271,7 +287,9 @@ def create_reference_pairs(graph):
         for sec_id in parent_sections:
             targets_by_section[sec_id].append(target)
 
-    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart)\.?\s*(\d+(\.\d+)?|[A-Za-z]+)'
+    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*(\d+(\.\d+)?|[A-Za-z]+)'
+    label_pattern_1 = r'\b(\d+(\.\d+)?|[A-Za-z]+)\s*\.?\s*(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)'
+    equation_pattern = r'(Equation|Eq)\s*\.?\s*\b\(\s*\d+\s*\)'
     pairs = []
 
     for source_id, source_attrs in graph.nodes(data=True):
@@ -281,49 +299,64 @@ def create_reference_pairs(graph):
         for ref_item in source_attrs['ref_info']:
             scope_candidates = sorted_targets
 
-            if 'section_info' in ref_item and ref_item['section_info']:
-                matched_sec_id = matcher.match(ref_item['section_info'])
-                if matched_sec_id:
-                    scope_candidates = targets_by_section.get(matched_sec_id, [])
+            # if 'section_info' in ref_item and ref_item['section_info']:
+            #     matched_sec_id = matcher.match(ref_item['section_info'])
+            #     if matched_sec_id:
+            #         scope_candidates = targets_by_section.get(matched_sec_id, [])
+            #
+            # if not scope_candidates:
+            #     continue
+            #
+            # best_match = None
+            #
+            # if 'order_info' in ref_item and isinstance(ref_item['order_info'], int):
+            #     target_idx = ref_item['order_info']
+            #
+            #     raw_lower = ref_item.get('raw_text', '').lower()
+            #     target_type = 'figure'
+            #     if 'table' in raw_lower:
+            #         target_type = 'table'
+            #     elif 'algorithm' in raw_lower:
+            #         target_type = 'algorithm'
+            #
+            #     filtered_candidates = [t for t in scope_candidates if t['type'] == target_type]
+            #     list_len = len(filtered_candidates)
+            #
+            #     if list_len > 0:
+            #         if -list_len <= target_idx < list_len:
+            #             best_match = filtered_candidates[target_idx]
 
-            if not scope_candidates:
-                continue
-
-            best_match = None
-
-            if 'order_info' in ref_item and isinstance(ref_item['order_info'], int):
-                target_idx = ref_item['order_info']
-
-                raw_lower = ref_item.get('raw_text', '').lower()
-                target_type = 'figure'
-                if 'table' in raw_lower:
-                    target_type = 'table'
-                elif 'algorithm' in raw_lower:
-                    target_type = 'algorithm'
-
-                filtered_candidates = [t for t in scope_candidates if t['type'] == target_type]
-                list_len = len(filtered_candidates)
-
-                if list_len > 0:
-                    if -list_len <= target_idx < list_len:
-                        best_match = filtered_candidates[target_idx]
-
-            else:
+            if True:
+                best_match = None
                 target_text = ref_item.get('figure_text', '')
                 match = re.search(label_pattern, target_text, re.IGNORECASE)
+                if not match:
+                    match = re.search(equation_pattern, target_text, re.IGNORECASE)
 
                 if match:
                     t_kind = match.group(1).lower()
                     if t_kind == 'fig': t_kind = 'figure'
+                    if t_kind == 'eq' : t_kind = 'equation'
                     t_num = match.group(2)
 
                     for target in scope_candidates:
-                        tm = re.search(label_pattern, target.get('text', ''), re.IGNORECASE)
-                        if tm:
-                            tk = tm.group(1).lower()
+                        tm = re.search(label_pattern_1, target.get('text', ''), re.IGNORECASE)
+                        if not tm:
+                            tm = re.search(label_pattern, target.get('text', ''), re.IGNORECASE)
+                            if tm:
+                                tk = tm.group(1).lower()
+                                if tk == 'fig': tk = 'figure'
+                                tn = tm.group(2)
+                            else:
+                                tm = re.search(r'\b\(\s*\d+\s*\)', target.get('text', ''))
+                                if tm:
+                                    tn = tm.group(1)
+                                    tk = "equation"
+                        else:
+                            tk = tm.group(3).lower()
                             if tk == 'fig': tk = 'figure'
-                            tn = tm.group(2)
-
+                            tn = tm.group(1)
+                        if tm:
                             if t_kind == tk and t_num == tn:
                                 best_match = target
                                 break
