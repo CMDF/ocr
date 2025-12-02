@@ -121,6 +121,14 @@ def group_image_with_caption(page_data: dict, folder_name: str):
     merged_boxes = []
     used_title_indices = set()
 
+    def sub_y(box1, box2):
+        coord1 = box1['coordinate']
+        coord2 = box2['coordinate']
+        if coord1[1] > coord2[3]:
+            return coord1[1] - coord2[3]
+        else:
+            return coord2[1] - coord1[3]
+
     for title_box in title_boxes:
         # if title_box['score'] < 0.8:
         #     continue
@@ -142,7 +150,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
             cal_flag = False
 
         closest = min(
-            ((i, target, _calculate_distance(title_box, target, cal_flag)) for i, target in enumerate(target_boxes)),
+            ((i, target, _calculate_distance(title_box, target, cal_flag)) for i, target in enumerate(target_boxes) if i not in used_title_indices and sub_y(title_box, target) < 0.05),
             key=lambda x: x[2],
             default=(None, None, float('inf'))
         )
