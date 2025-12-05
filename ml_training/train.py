@@ -5,8 +5,9 @@ import spacy
 import sys
 import joblib
 from pathlib import Path
+from spacy.tokens import Doc
 
-CONLL_FILE = 'project-1-at-2025-10-31-04-58-f27d2496.conll'
+CONLL_FILE = 'train_data.conll'
 MODEL_FILE = Path(__file__).parent.parent/"service"/"models"/"artifacts"/"figure_model.joblib"
 
 try:
@@ -101,8 +102,11 @@ def token2features(doc, i):
 
 def sent2features(s):
     tokens = [token for token, label in s]
-    raw_text = " ".join(tokens)
-    doc = nlp(raw_text)
+    doc = Doc(nlp.vocab, words=tokens)
+    for i in doc:
+        print(i)
+    # raw_text = " ".join(tokens)
+    # doc = nlp(raw_text)
 
     if len(doc) != len(tokens):
         print("--- 🚨 토큰화 불일치 경고 (학습 데이터)! ---")
@@ -151,7 +155,7 @@ if __name__ == "__main__":
     y_pred = crf.predict(X_test)
     print("\n--- 모델 성능 평가 (Test Set) ---")
 
-    labels = [label for label in crf.classes_ if label in ['O', 'B-REF', 'I-REF']]
+    labels = [label for label in crf.classes_ if label in ['O', 'B-FIG', 'I-FIG']]
     sorted_labels = sorted(labels, key=lambda name: (name[1:], name[0]))
 
     report = metrics.flat_classification_report(

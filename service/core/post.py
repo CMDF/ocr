@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import numpy as np
 
-sym_spell = SymSpell(max_dictionary_edit_distance=2,
+sym_spell = SymSpell(max_dictionary_edit_distance=0,
                      prefix_length=7)
 
 dictionary_path = Path(__file__).parent.parent.parent/"data"/"en-80k.txt"
@@ -91,6 +91,6 @@ def correct(target, line_y_tolerance_ratio=0.3, space_threshold_ratio=0.35):
             previous_box_x_max = current_box_x_max
 
         final = correct_segmentation_and_typos(str(reconstructed_line_text), sym_spell)
-        corrected_lines.append(final)
+        corrected_lines.append(str(reconstructed_line_text))
 
     return corrected_lines

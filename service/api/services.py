@@ -1,21 +1,18 @@
 from service.core.layout import layout_detection, det_debug
 from service.core.ocr import ocr
 from service.core.crop import crop_image_by_bbox
-from service.core.post import correct
+from service.core.post import correct, correct_segmentation_and_typos
 from service.core.graph import build_document_graph, load_and_transform_data, create_reference_pairs
 from service.models.predict import predict_from_text
 from pdf2image import convert_from_path
 from pathlib import Path
-import os
-import json
-import spacy
-import time
-import fitz
+import os, json, spacy, time, fitz, pysbd
 import concurrent.futures
 from functools import partial
 from config import debug
 
-nlp = spacy.load("en_core_web_sm")
+nlp = spacy.load("en_core_web_lg")
+seg = pysbd.Segmenter(language="en", clean=False)
 
 def _convert_page_worker(page_num, pdf_path, output_folder, dpi, use_cropbox):
     try:
@@ -62,12 +59,16 @@ def _convert_pdf_to_png(pdf_path: str, output_folder: str = None):
     with concurrent.futures.ThreadPoolExecutor() as executor:
         list(executor.map(worker, range(1, page_count+1)))
 
+import re
 def find_start_line_for_string(lines, search_string):
+    pattern = r'\s*'.join(re.escape(char) for char in search_string.replace(" ", ""))
     paragraph = " ".join(lines)
-    start_index = paragraph.find(search_string)
+    match = re.search(pattern, paragraph, re.IGNORECASE)
 
-    if start_index == -1:
+    if not match:
         return -1
+
+    start_index = match.start()
 
     current_pos = 0
     for i, line in enumerate(lines):
@@ -79,6 +80,17 @@ def find_start_line_for_string(lines, search_string):
         current_pos += len(line) + 1
         
     return -1
+
+def find_start_in_line(line, search_string):
+    pattern = r'\s*'.join(re.escape(char) for char in search_string.replace(" ", ""))
+    match = re.search(pattern, line, re.IGNORECASE)
+
+    if not match:
+        return -1
+
+    start_index = match.start()
+
+    return start_index
 
 def extract_infos_from_pdf(pdf_path: str):
     folder_name = os.path.basename(pdf_path).split(".")[0]
@@ -114,10 +126,13 @@ def extract_infos_from_pdf(pdf_path: str):
 
                 if paragraph != "":
                     height = (coord[3] - coord[1])/len(lines)
-                    doc = nlp(paragraph)
-                    sentences = list(doc.sents)
-                    for i, sentence in enumerate(sentences):
-                        predict_output, _, _ = predict_from_text(sentence.text.strip())
+                    paragraph = paragraph.replace("Eq.", "EqⒹ")
+                    sentences = seg.segment(paragraph)
+                    sentences = [s.replace("EqⒹ", "Eq.") for s in sentences]
+                    for sentence in sentences:
+                        sentence = correct_segmentation_and_typos(sentence)
+                        sentence = sentence.replace("E q", "Eq")
+                        predict_output, _, _ = predict_from_text(sentence)
                         if predict_output.ref_info:
                             if 'ref_info' not in text:
                                 text['ref_info'] = []
@@ -125,15 +140,16 @@ def extract_infos_from_pdf(pdf_path: str):
                                 line_no = find_start_line_for_string(lines, ref_info)
                                 num_char = len(lines[line_no])
                                 avg_char_width = (coord[2] - coord[0])/num_char
-                                new_coord = [coord[0]+lines[line_no].find(ref_info)*avg_char_width,
+                                new_coord = [coord[0]+find_start_in_line(lines[line_no], ref_info)*avg_char_width,
                                              coord[1]+line_no*height,
-                                             coord[0]+(lines[line_no].find(ref_info)+len(ref_info))*avg_char_width,
+                                             coord[0]+(find_start_in_line(lines[line_no], ref_info)+len(ref_info))*avg_char_width,
                                              coord[1]+(line_no+1)*height]
                                 text['ref_info'].append({'figure_text': ref_info,
                                                          'text_box': new_coord,
                                                          'raw_text': predict_output.raw_texts,
                                                          'section_info': predict_output.section_info})
 
+                paragraph = paragraph.replace("EqⒹ", "Eq.")
                 page_text += paragraph
 
             for figure in figures:

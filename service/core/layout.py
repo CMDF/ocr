@@ -92,15 +92,14 @@ def det_debug(output: dict, folder_name: str, do: bool = debug):
         if f.lower().endswith(".png")
     ]
 
-    for figure in output['figures']:
-        filename = "page_" + str(figure['page_num'] + 1) + ".png"
-        path = str(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename)
-        coord = figure['figure_box']
-        draw_bounding_box(path, coord)
     for pair in output['matches']:
         filename = "page_" + str(pair['page_num'] + 1) + ".png"
         path = str(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename)
         coord = pair['text_box']
+        draw_bounding_box(path, coord)
+        filename = "page_" + str(pair['figure_page'] + 1) + ".png"
+        path = str(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/filename)
+        coord = pair['figure_box']
         draw_bounding_box(path, coord)
 
     imgs.sort(key=lambda p: int(((p.split('/')[-1]).split(".")[0]).split("_")[-1]))

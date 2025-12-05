@@ -138,7 +138,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
             figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent / "data" / "temp" / folder_name / filename), title_coord))
             figure_title_output = group_and_sort_by_proximity(figure_title_output[0])
         else:
-            figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent / "data" / "temp" / folder_name / filename), title_coord), True)
+            figure_title_output = ocr(crop_image_by_bbox(str(Path(__file__).parent.parent.parent / "data" / "temp" / folder_name / filename), title_coord))
 
         if not figure_title_output[0]:
             show(title_coord, str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename))
@@ -178,7 +178,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
 
             merged_boxes.append({
                 "cls_id": 99, "label": image_to_figure(target_box), "score": target_box['score'], "coordinate": new_coord,
-                'text': correct_segmentation_and_typos(figure_title)
+                'text': figure_title
             })
             # show(new_coord, str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename))
 

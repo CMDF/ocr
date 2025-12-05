@@ -196,60 +196,11 @@ def _get_hierarchical_ancestors(graph, node_id):
 
     return ancestors
 
-class SectionMatcher:
-    def __init__(self, graph):
-        self.graph = graph
-        self.num_map = {}
-        self.text_map = {}
-        self._build_index()
-
-    def _normalize(self, text):
-        return re.sub(r'\s+', ' ', text.strip().lower())
-
-    def _extract_section_number(self, text):
-        match = re.match(r'^(\d+(\.\d+)*)', text)
-        return match.group(1) if match else None
-
-    def _build_index(self):
-        for node_id, attrs in self.graph.nodes(data=True):
-            if attrs.get('type') in ['doc_title', 'paragraph_title', 'section']:
-                raw_text = attrs.get('text', '')
-                normalized_text = self._normalize(raw_text)
-
-                sec_num = self._extract_section_number(normalized_text)
-                if sec_num:
-                    self.num_map[sec_num] = node_id
-
-                self.text_map[normalized_text] = node_id
-
-    def match(self, query_text):
-        if not query_text:
-            return None
-
-        clean_query = self._normalize(query_text)
-
-        query_num_match = re.search(r'\b(\d+(\.\d+)*)\b', clean_query)
-        if query_num_match:
-            query_num = query_num_match.group(1)
-            if query_num in self.num_map:
-                return self.num_map[query_num]
-
-        if clean_query in self.text_map:
-            return self.text_map[clean_query]
-
-        for sec_text, node_id in self.text_map.items():
-            if clean_query in sec_text:
-                return node_id
-
-        return None
-
 # Finds reference pairs between text (source) and objects (target) and returns a {source_id: target_node} map.
 def create_reference_pairs(graph):
-    matcher = SectionMatcher(graph)
-
     target_nodes_list = []
     for node_id, attrs in graph.nodes(data=True):
-        if attrs.get('type') in ['image', 'table', 'figure', 'chart', 'algorithm']:
+        if attrs.get('type') in ['image', 'table', 'figure', 'chart', 'algorithm', 'formula']:
             node_data = attrs.copy()
             node_data['id'] = node_id
             sort_key = (
@@ -287,9 +238,9 @@ def create_reference_pairs(graph):
         for sec_id in parent_sections:
             targets_by_section[sec_id].append(target)
 
-    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*(\d+(\.\d+)?|[A-Za-z]+)'
+    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)'
     label_pattern_1 = r'\b(\d+(\.\d+)?|[A-Za-z]+)\s*\.?\s*(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)'
-    equation_pattern = r'(Equation|Eq)\s*\.?\s*\b\(\s*\d+\s*\)'
+    equation_pattern = r'\b(Equation|Eq)\s*\.?\s*\(?\s*(\d+)\s*\)?'
     pairs = []
 
     for source_id, source_attrs in graph.nodes(data=True):
@@ -299,67 +250,40 @@ def create_reference_pairs(graph):
         for ref_item in source_attrs['ref_info']:
             scope_candidates = sorted_targets
 
-            # if 'section_info' in ref_item and ref_item['section_info']:
-            #     matched_sec_id = matcher.match(ref_item['section_info'])
-            #     if matched_sec_id:
-            #         scope_candidates = targets_by_section.get(matched_sec_id, [])
-            #
-            # if not scope_candidates:
-            #     continue
-            #
-            # best_match = None
-            #
-            # if 'order_info' in ref_item and isinstance(ref_item['order_info'], int):
-            #     target_idx = ref_item['order_info']
-            #
-            #     raw_lower = ref_item.get('raw_text', '').lower()
-            #     target_type = 'figure'
-            #     if 'table' in raw_lower:
-            #         target_type = 'table'
-            #     elif 'algorithm' in raw_lower:
-            #         target_type = 'algorithm'
-            #
-            #     filtered_candidates = [t for t in scope_candidates if t['type'] == target_type]
-            #     list_len = len(filtered_candidates)
-            #
-            #     if list_len > 0:
-            #         if -list_len <= target_idx < list_len:
-            #             best_match = filtered_candidates[target_idx]
+            best_match = None
 
-            if True:
-                best_match = None
-                target_text = ref_item.get('figure_text', '')
-                match = re.search(label_pattern, target_text, re.IGNORECASE)
-                if not match:
-                    match = re.search(equation_pattern, target_text, re.IGNORECASE)
+            target_text = ref_item.get('figure_text', '')
+            match = re.search(label_pattern, target_text, re.IGNORECASE)
+            if not match:
+                match = re.search(equation_pattern, target_text, re.IGNORECASE)
 
-                if match:
-                    t_kind = match.group(1).lower()
-                    if t_kind == 'fig': t_kind = 'figure'
-                    if t_kind == 'eq' : t_kind = 'equation'
-                    t_num = match.group(2)
+            if match:
+                t_kind = match.group(1).lower()
+                if t_kind == 'fig': t_kind = 'figure'
+                if t_kind == 'eq' : t_kind = 'equation'
+                t_num = match.group(2)
 
-                    for target in scope_candidates:
-                        tm = re.search(label_pattern_1, target.get('text', ''), re.IGNORECASE)
+                for target in scope_candidates:
+                    tm = re.search(label_pattern_1, target.get('text', ''), re.IGNORECASE)
+                    if not tm:
+                        tm = re.search(label_pattern, target.get('text', ''), re.IGNORECASE)
                         if not tm:
-                            tm = re.search(label_pattern, target.get('text', ''), re.IGNORECASE)
+                            tm = re.search(r'\(\s*(\d+)\s*\)', target.get('text', ''))
                             if tm:
-                                tk = tm.group(1).lower()
-                                if tk == 'fig': tk = 'figure'
-                                tn = tm.group(2)
-                            else:
-                                tm = re.search(r'\b\(\s*\d+\s*\)', target.get('text', ''))
-                                if tm:
-                                    tn = tm.group(1)
-                                    tk = "equation"
+                                tn = tm.group(1)
+                                tk = "equation"
                         else:
-                            tk = tm.group(3).lower()
+                            tk = tm.group(1).lower()
                             if tk == 'fig': tk = 'figure'
-                            tn = tm.group(1)
-                        if tm:
-                            if t_kind == tk and t_num == tn:
-                                best_match = target
-                                break
+                            tn = tm.group(2)
+                    else:
+                        tk = tm.group(3).lower()
+                        if tk == 'fig': tk = 'figure'
+                        tn = tm.group(1)
+                    if tm:
+                        if t_kind == tk and t_num == tn:
+                            best_match = target
+                            break
 
             if best_match:
                 pairs.append({
@@ -372,93 +296,6 @@ def create_reference_pairs(graph):
                 })
 
     return pairs
-
-    """
-    for node_id, attrs in graph.nodes(data=True):
-        if attrs.get('type') in ['image', 'table', 'figure', 'chart', 'algorithm']:
-            match = re.search(label_pattern, attrs.get('text', ''), re.IGNORECASE)
-            if match:
-                kind = match.group(1).lower()
-                if kind == 'fig':
-                    kind = 'figure'
-                num = match.group(2)
-                key = f"{kind}:{num}"
-
-                attrs['id'] = node_id
-                target_nodes[key].append(attrs)
-
-    pairs = []
-
-    text_nodes = []
-    for node_id, attrs in graph.nodes(data=True):
-        if attrs.get('type') == 'text':
-            attrs['id'] = node_id
-            text_nodes.append(attrs)
-
-    for source_id, source_attrs in graph.nodes(data=True):
-        if 'ref_info' in source_attrs:
-            ref_info_list = source_attrs['ref_info']
-
-            for ref_info_item in ref_info_list:
-                figure_text = ref_info_item.get('figure_text')
-                match = re.match(label_pattern, figure_text.strip(), re.IGNORECASE)
-                if not match:
-                    continue
-
-                kind, num = match.group(1).lower(), match.group(2)
-                if kind == 'fig':
-                    kind = 'figure'
-                ref_key = f"{kind}:{num}"
-
-                candidates = target_nodes.get(ref_key, [])
-                if not candidates:
-                    continue
-
-                best_match = None
-
-                if len(candidates) == 1:
-                    best_match = candidates[0]
-
-                elif len(candidates) > 1:
-                    source_ancestors = _get_hierarchical_ancestors(graph, source_id)
-                    source_sections = source_ancestors.get('paragraph_title', set())
-                    source_docs = source_ancestors.get('doc_title', set())
-
-                    priority_matches = []
-
-                    for candidate in candidates:
-                        candidate_ancestors = _get_hierarchical_ancestors(graph, candidate['id'])
-
-                        common_sections = source_sections.intersection(
-                            candidate_ancestors.get('paragraph_title', set()))
-                        common_docs = source_docs.intersection(candidate_ancestors.get('doc_title', set()))
-
-                        if common_sections:
-                            priority_matches.append((1, candidate))
-                        elif common_docs:
-                            priority_matches.append((2, candidate))
-                        else:
-                            priority_matches.append((3, candidate))
-
-                    if priority_matches:
-                        sorted_matches = sorted(priority_matches, key=lambda item: item[0])
-                        best_priority = sorted_matches[0][0]
-
-                        top_candidates = [c for p, c in sorted_matches if p == best_priority]
-                        best_match = min(top_candidates, key=lambda c: abs(c['page'] - source_attrs['page']))
-
-                if best_match:
-                    pairs.append({
-                        'id': source_id,
-                        'page': source_attrs['page'],
-                        'raw_text': ref_info_item['raw_text'],
-                        'figure_text': ref_info_item['figure_text'],
-                        'text_box': ref_info_item['text_box'],
-                        'ref': best_match
-                    })
-
-    return pairs
-    """
 
 # Finds and returns a list of nodes matching given key-value conditions.
 def find_nodes(graph, **conditions):
