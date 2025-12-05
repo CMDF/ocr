@@ -1,9 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi import status
 from pathlib import Path
-import os
-import hashlib
-import asyncio
+import os, hashlib, asyncio
 from service.api.services import extract_infos_from_pdf
 from service.api.models import S3model
 from service.core.s3 import download_file_from_presigned_url

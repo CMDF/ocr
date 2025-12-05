@@ -1,8 +1,6 @@
 import networkx as nx
-import re
-import math
+import re, math, json
 from collections import defaultdict
-import json
 from networkx.readwrite import json_graph
 import matplotlib.pyplot as plt
 

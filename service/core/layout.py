@@ -1,9 +1,7 @@
 from paddleocr import LayoutDetection
 from service.core.pre import *
 from pathlib import Path
-import json
-import os
-import fitz
+import json, os, fitz
 from config import debug
 from PIL import Image, ImageDraw
 

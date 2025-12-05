@@ -1,6 +1,5 @@
 from service.core.ocr import *
 from service.core.crop import *
-from service.core.post import correct_segmentation_and_typos
 from pathlib import Path
 
 def _calculate_distance(box1, box2, flag):

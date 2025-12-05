@@ -1,9 +1,5 @@
-import sklearn_crfsuite
+import sklearn_crfsuite, spacy, sys, joblib
 from sklearn.model_selection import train_test_split
-from sklearn_crfsuite import metrics
-import spacy
-import sys
-import joblib
 from pathlib import Path
 from spacy.tokens import Doc
 
@@ -158,7 +154,7 @@ if __name__ == "__main__":
     labels = [label for label in crf.classes_ if label in ['O', 'B-FIG', 'I-FIG']]
     sorted_labels = sorted(labels, key=lambda name: (name[1:], name[0]))
 
-    report = metrics.flat_classification_report(
+    report = sklearn_crfsuite.metrics.flat_classification_report(
         y_test, y_pred, labels=sorted_labels, digits=3
     )
     print(report)
