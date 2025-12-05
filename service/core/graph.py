@@ -194,6 +194,74 @@ def _get_hierarchical_ancestors(graph, node_id):
 
     return ancestors
 
+def find_target_with_name(scope_candidates, ref_item):
+    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)'
+    label_pattern_1 = r'\b(\d+(\.\d+)?|[A-Za-z]+)\s*\.?\s*(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)'
+    equation_pattern = r'\b(Equation|Eq)\s*\.?\s*\(?\s*(\d+)\s*\)?'
+
+    target_text = ref_item.get('figure_text', '')
+    match = re.search(label_pattern, target_text, re.IGNORECASE)
+    best_match = None
+
+    if not match:
+        match = re.search(equation_pattern, target_text, re.IGNORECASE)
+
+    if match:
+        t_kind = match.group(1).lower()
+        if t_kind == 'fig': t_kind = 'figure'
+        if t_kind == 'eq': t_kind = 'equation'
+        t_num = match.group(2)
+
+        for target in scope_candidates:
+            tm = re.search(label_pattern_1, target.get('text', ''), re.IGNORECASE)
+            if not tm:
+                tm = re.search(label_pattern, target.get('text', ''), re.IGNORECASE)
+                if not tm:
+                    tm = re.search(r'\(\s*(\d+)\s*\)', target.get('text', ''))
+                    if tm:
+                        tn = tm.group(1)
+                        tk = "equation"
+                else:
+                    tk = tm.group(1).lower()
+                    if tk == 'fig': tk = 'figure'
+                    tn = tm.group(2)
+            else:
+                tk = tm.group(3).lower()
+                if tk == 'fig': tk = 'figure'
+                tn = tm.group(1)
+            if tm:
+                if t_kind == tk and t_num == tn:
+                    best_match = target
+                    break
+
+    return best_match
+
+def find_target_with_location(scope_candidates, ref_item):
+    best_match = None
+    """
+    TODO: implement this logic
+    if ref_item has an information like 'next figure', 'below table' or etc., 
+    we find that figure, table, chart... in our scope_candidates(sorted by reading order)
+    if ref_item info is upper, left,... the reference is before this node
+    else reference is after this node
+    """
+    return best_match
+
+def narrow_down_scope(sorted_targets, graph, ref_item):
+    scope_candidates = sorted_targets
+    targets_by_section = defaultdict(list)
+
+    for target in sorted_targets:
+        ancestors = _get_hierarchical_ancestors(graph, target['id'])
+        parent_sections = ancestors.get('paragraph_title', set()) | \
+                          ancestors.get('section', set()) | \
+                          ancestors.get('doc_title', set())
+
+        for sec_id in parent_sections:
+            targets_by_section[sec_id].append(target)
+
+    return scope_candidates
+
 # Finds reference pairs between text (source) and objects (target) and returns a {source_id: target_node} map.
 def create_reference_pairs(graph):
     target_nodes_list = []
@@ -209,36 +277,18 @@ def create_reference_pairs(graph):
             target_nodes_list.append((sort_key, node_data))
 
     target_nodes_list.sort(key=lambda x: x[0])
-    length_validation = len(target_nodes_list) > 3
-    if length_validation:
-        y_comparison_first_two = abs(target_nodes_list[0][1]['bbox'][1] - target_nodes_list[1][1]['bbox'][1]) < 0.0001 and target_nodes_list[0][1]['bbox'][1] != target_nodes_list[1][1]['bbox'][1]
-        y_comparison_next_two = abs(target_nodes_list[1][1]['bbox'][1] - target_nodes_list[2][1]['bbox'][1]) < 0.0001 and target_nodes_list[1][1]['bbox'][1] != target_nodes_list[2][1]['bbox'][1]
-
-        if y_comparison_first_two and not y_comparison_next_two:
-            left_boxes = []
-            right_boxes = []
-            for target_nodes in target_nodes_list:
-                if target_nodes_list[0][1].get('bbox')[0] < 0.4:
-                    left_boxes.append(target_nodes)
-                else:
-                    right_boxes.append(target_nodes)
-            target_nodes_list = left_boxes + right_boxes
+    left_boxes = []
+    right_boxes = []
+    if len(right_boxes) > len(target_nodes_list)*0.25:
+        for target_nodes in target_nodes_list:
+            if target_nodes_list[0][1].get('bbox')[0] < 0.4:
+                left_boxes.append(target_nodes)
+            else:
+                right_boxes.append(target_nodes)
+        target_nodes_list = left_boxes + right_boxes
 
     sorted_targets = [item[1] for item in target_nodes_list]
-    targets_by_section = defaultdict(list)
 
-    for target in sorted_targets:
-        ancestors = _get_hierarchical_ancestors(graph, target['id'])
-        parent_sections = ancestors.get('paragraph_title', set()) | \
-                          ancestors.get('section', set()) | \
-                          ancestors.get('doc_title', set())
-
-        for sec_id in parent_sections:
-            targets_by_section[sec_id].append(target)
-
-    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)'
-    label_pattern_1 = r'\b(\d+(\.\d+)?|[A-Za-z]+)\s*\.?\s*(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)'
-    equation_pattern = r'\b(Equation|Eq)\s*\.?\s*\(?\s*(\d+)\s*\)?'
     pairs = []
 
     for source_id, source_attrs in graph.nodes(data=True):
@@ -246,42 +296,11 @@ def create_reference_pairs(graph):
             continue
 
         for ref_item in source_attrs['ref_info']:
-            scope_candidates = sorted_targets
+            scope_candidates = narrow_down_scope(sorted_targets, graph, ref_item)
 
-            best_match = None
-
-            target_text = ref_item.get('figure_text', '')
-            match = re.search(label_pattern, target_text, re.IGNORECASE)
-            if not match:
-                match = re.search(equation_pattern, target_text, re.IGNORECASE)
-
-            if match:
-                t_kind = match.group(1).lower()
-                if t_kind == 'fig': t_kind = 'figure'
-                if t_kind == 'eq' : t_kind = 'equation'
-                t_num = match.group(2)
-
-                for target in scope_candidates:
-                    tm = re.search(label_pattern_1, target.get('text', ''), re.IGNORECASE)
-                    if not tm:
-                        tm = re.search(label_pattern, target.get('text', ''), re.IGNORECASE)
-                        if not tm:
-                            tm = re.search(r'\(\s*(\d+)\s*\)', target.get('text', ''))
-                            if tm:
-                                tn = tm.group(1)
-                                tk = "equation"
-                        else:
-                            tk = tm.group(1).lower()
-                            if tk == 'fig': tk = 'figure'
-                            tn = tm.group(2)
-                    else:
-                        tk = tm.group(3).lower()
-                        if tk == 'fig': tk = 'figure'
-                        tn = tm.group(1)
-                    if tm:
-                        if t_kind == tk and t_num == tn:
-                            best_match = target
-                            break
+            best_match = find_target_with_location(scope_candidates, ref_item)
+            if not best_match:
+                best_match = find_target_with_name(scope_candidates, ref_item)
 
             if best_match:
                 pairs.append({
