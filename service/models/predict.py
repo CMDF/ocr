@@ -77,15 +77,25 @@ class ReferenceInfo:
                 f"  order_info   = {self.order_info}\n"
                 f")")
 
+def clean_span_text(tokens):
+    text = " ".join(tokens)
+    text = re.sub(r'\s+\.', '.', text)
+    text = re.sub(r'\(\s+', '(', text)
+    text = re.sub(r'\s+\)', ')', text)
+    text = re.sub(r'\[\s+', '[', text)
+    text = re.sub(r'\s+\]', ']', text)
+
+    return text
+
+
 def tags_to_spans(tokens, tags):
     output = ReferenceInfo()
     current_span_tokens = []
-
     current_span_type = None
 
     def save_current_span():
         if current_span_tokens and current_span_type:
-            span_text = " ".join(current_span_tokens)
+            span_text = clean_span_text(current_span_tokens)
 
             if current_span_type == 'REF':
                 output.ref_info.append(span_text)
@@ -98,7 +108,7 @@ def tags_to_spans(tokens, tags):
         tag = tags[i]
         token = tokens[i]
 
-        if tag == 'B-FIG' or tag == 'B-TBL':
+        if tag == 'B-FIG':
             save_current_span()
             current_span_tokens.append(token)
             current_span_type = 'REF'
@@ -108,28 +118,31 @@ def tags_to_spans(tokens, tags):
             current_span_tokens.append(token)
             current_span_type = 'SEC'
 
-        elif tag == 'I-FIG' or tag == 'I-TBL':
+        elif tag == 'I-FIG':
             if current_span_type == 'REF':
                 current_span_tokens.append(token)
             else:
                 save_current_span()
-                current_span_type = None
+                current_span_tokens.append(token)
+                current_span_type = 'REF'
 
         elif tag == 'I-SEC':
             if current_span_type == 'SEC':
                 current_span_tokens.append(token)
             else:
                 save_current_span()
-                current_span_type = None
+                current_span_tokens.append(token)
+                current_span_type = 'SEC'
 
         else:
             save_current_span()
             current_span_type = None
 
     save_current_span()
-
     return output
 
+
+# --- 5. 예측용 전처리 (강제 공백 주입) ---
 def preprocess_for_inference(text):
     text = re.sub(r'([a-zA-Z])\.', r'\1 .', text)
     text = re.sub(r'([()])', r' \1 ', text)
@@ -139,17 +152,22 @@ def preprocess_for_inference(text):
     return text
 
 def predict_from_text(text, crf_model=crf):
-    text = preprocess_for_inference(text)
-    doc = nlp(text)
+    processed_text = preprocess_for_inference(text)
+    doc = nlp(processed_text)
+
     features = [token2features(doc, i) for i in range(len(doc))]
     tokens = [token.text for token in doc]
+    if not features:
+        return ReferenceInfo(), [], []
+
     predicted_tags = crf_model.predict([features])[0]
     spans = tags_to_spans(tokens, predicted_tags)
-    if spans.ref_info:
+
+    if spans.ref_info or spans.section_info:
         spans.raw_texts.append(text)
 
     return spans, tokens, predicted_tags
 
 if __name__ == '__main__':
-    output, _, _ = predict_from_text("Solution Writing the equation z = i in polar form and using Eq .(5), we obtain", joblib.load(MODEL_FILE))
+    output, _, _ = predict_from_text("Solution Writing the equation z = i in polar form and using Eq .(5) in chapter 4, we obtain", joblib.load(MODEL_FILE))
     print(output)

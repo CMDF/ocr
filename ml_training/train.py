@@ -2,6 +2,7 @@ import sklearn_crfsuite, spacy, sys, joblib
 from sklearn.model_selection import train_test_split
 from pathlib import Path
 from spacy.tokens import Doc
+from sklearn_crfsuite import metrics
 
 CONLL_FILE = 'train_data.conll'
 MODEL_FILE = Path(__file__).parent.parent/"service"/"models"/"artifacts"/"figure_model.joblib"
@@ -99,8 +100,6 @@ def token2features(doc, i):
 def sent2features(s):
     tokens = [token for token, label in s]
     doc = Doc(nlp.vocab, words=tokens)
-    for i in doc:
-        print(i)
     # raw_text = " ".join(tokens)
     # doc = nlp(raw_text)
 
@@ -151,10 +150,10 @@ if __name__ == "__main__":
     y_pred = crf.predict(X_test)
     print("\n--- 모델 성능 평가 (Test Set) ---")
 
-    labels = [label for label in crf.classes_ if label in ['O', 'B-FIG', 'I-FIG']]
+    labels = [label for label in crf.classes_ if label in ['O', 'B-FIG', 'I-FIG', 'B-SEC']]
     sorted_labels = sorted(labels, key=lambda name: (name[1:], name[0]))
 
-    report = sklearn_crfsuite.metrics.flat_classification_report(
+    report = metrics.flat_classification_report(
         y_test, y_pred, labels=sorted_labels, digits=3
     )
     print(report)
