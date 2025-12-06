@@ -160,7 +160,6 @@ def extract_infos_from_pdf(pdf_path: str):
             page_data = {'page_num': page['page_index'], 'text': page_text}
             text_result.append(page_data)
 
-
         graph = build_document_graph(load_and_transform_data(data))
         pairs = create_reference_pairs(graph)
 
@@ -205,8 +204,8 @@ if __name__ == "__main__":
     start = time.time()
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/AI_04_Adversarial Search (Updated 250924).pdf")
-    output = extract_infos_from_pdf("/home/gyupil/Downloads/Test2.pdf")
-    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Fast and secure IPC for microkernel.pdf")
+    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Test2.pdf")
+    output = extract_infos_from_pdf("/home/gyupil/Downloads/Fast and secure IPC for microkernel.pdf")
     interval = time.time() - start
-    # print(output)
+    print(output)
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")

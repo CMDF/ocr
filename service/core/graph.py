@@ -1,7 +1,6 @@
 import networkx as nx
 import re, math, json
 from collections import defaultdict
-from networkx.readwrite import json_graph
 import matplotlib.pyplot as plt
 
 def load_and_transform_data(data):
@@ -84,7 +83,7 @@ def _add_hierarchical_edges(graph, all_nodes):
 
     for node_id, attrs in graph.nodes(data=True):
         if 'section_info' in attrs:
-            target_section_node = f"Section_{int(attrs['section_info'])}"
+            target_section_node = f"Section_{int(float(attrs['section_info']))}"
             if graph.has_node(target_section_node):
                 graph.add_edge(node_id, target_section_node, type='hierarchical')
 
@@ -96,7 +95,7 @@ def build_document_graph(processed_data):
             continue
 
         node_attrs = node_data.copy()
-        G.add_node(node_type='doc_component', id=node_attrs['id'], **node_attrs)
+        G.add_node(node_attrs['id'], node_type='doc_component', **node_attrs)
         all_nodes.append(node_attrs)
 
     nodes_by_page = defaultdict(list)
@@ -189,71 +188,43 @@ def find_target_with_name(scope_candidates, ref_item):
 
     return best_match
 
-def find_target_with_location(scope_candidates, ref_item):
-    best_match = None
-    """
-    TODO: implement this logic
-    if ref_item has an information like 'next figure', 'below table' or etc., 
-    we find that figure, table, chart... in our scope_candidates(sorted by reading order)
-    if ref_item info is upper, left,... the reference is before this node
-    else reference is after this node
-    """
-    return best_match
-
-def narrow_down_scope(sorted_targets, graph, ref_item):
-    scope_candidates = sorted_targets
-    targets_by_section = defaultdict(list)
-
-    for target in sorted_targets:
-        ancestors = _get_hierarchical_ancestors(graph, target['id'])
-        parent_sections = ancestors.get('paragraph_title', set()) | \
-                          ancestors.get('section', set()) | \
-                          ancestors.get('doc_title', set())
-
-        for sec_id in parent_sections:
-            targets_by_section[sec_id].append(target)
-
-    return scope_candidates
-
-# TODO: change logic to use graph
 def create_reference_pairs(graph):
     target_nodes_list = []
+    source_nodes_list = []
     for node_id, attrs in graph.nodes(data=True):
         if attrs.get('type') in ['image', 'table', 'figure', 'chart', 'algorithm', 'formula']:
             node_data = attrs.copy()
             node_data['id'] = node_id
-            sort_key = (
-                attrs.get('page', 0),
-                attrs.get('bbox', [0, 0, 0, 0])[1],
-                attrs.get('bbox', [0, 0, 0, 0])[0]
-            )
-            target_nodes_list.append((sort_key, node_data))
-
-    left_boxes = []
-    right_boxes = []
-    target_nodes_list.sort(key=lambda x: x[0][1].get('bbox')[1])
-    for target_nodes in target_nodes_list:
-        if target_nodes_list[0][1].get('bbox')[0] < 0.4:
-            left_boxes.append(target_nodes)
-        else:
-            right_boxes.append(target_nodes)
-    if len(right_boxes) > len(target_nodes_list) * 0.3:
-        target_nodes_list = left_boxes + right_boxes
-
-    sorted_targets = [item[1] for item in target_nodes_list]
+            target_nodes_list.append(node_data)
+        if attrs.get('type') == 'text':
+            node_data = attrs.copy()
+            node_data['id'] = node_id
+            source_nodes_list.append(node_data)
 
     pairs = []
 
-    for source_id, source_attrs in graph.nodes(data=True):
+    for source_attrs in source_nodes_list:
+        source_id = source_attrs.get('id')
         if 'ref_info' not in source_attrs:
             continue
 
         for ref_item in source_attrs['ref_info']:
-            scope_candidates = narrow_down_scope(sorted_targets, graph, ref_item)
+            scope = []
+            if ref_item['section_info']:
+                try:
+                    section_node_id = f"Section_{int(float(ref_item.get('section_info')[0]))}"
+                    if not graph.has_node(section_node_id):
+                        scope = []
+                    for u, v, data in graph.in_edges(section_node_id, data=True):
+                        if data.get('type') == 'hierarchical':
+                            node_data = graph.nodes[u]
+                            scope.append(node_data)
+                except Exception:
+                    scope = target_nodes_list
+            else:
+                scope = target_nodes_list
 
-            best_match = find_target_with_location(scope_candidates, ref_item)
-            if not best_match:
-                best_match = find_target_with_name(scope_candidates, ref_item)
+            best_match = find_target_with_name(scope, ref_item)
 
             if best_match:
                 pairs.append({
@@ -267,7 +238,6 @@ def create_reference_pairs(graph):
 
     return pairs
 
-# Finds and returns a list of nodes matching given key-value conditions.
 def find_nodes(graph, **conditions):
     found_nodes = []
 
@@ -290,43 +260,82 @@ def find_nodes(graph, **conditions):
 
     return found_nodes
 
-# Serializes and saves a NetworkX graph to a JSON file.
-def save_graph_to_json(graph, filepath: str):
-    graph_data = json_graph.node_link_data(graph, edges='edges')
-
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(graph_data, f, indent=4, ensure_ascii=False)
-
-# Visualizes the graph using Matplotlib and saves it as 'graph.png'.
 def save_graph_to_img(graph: nx.Graph):
     plt.figure(figsize=(30, 30))
-    pos = nx.spring_layout(graph, k=0.5, iterations=100)
+    for u, v, d in graph.edges(data=True):
+        if d.get('type') == 'sequence':
+            graph[u][v]['weight'] = 2.0
+        elif d.get('type') == 'hierarchical':
+            graph[u][v]['weight'] = 0.08
+        else:
+            graph[u][v]['weight'] = 0.5
+
+    pos = nx.spring_layout(graph, k=0.8, iterations=300, weight='weight', seed=42)
+
     node_color_map = {
-        'doc_title': 'gold',
-        'paragraph_title': 'orange',
-        'text': 'skyblue',
-        'figure': 'salmon',
-        'formula': 'lightgreen',
-        'number': 'lightgray'
+        'doc_title'         : '#FFD700',
+        'paragraph_title'   : '#FFA500',
+        'text'              : '#87CEEB',
+        'figure'            : '#FA8072',
+        'formula'           : '#90EE90',
+        'number'            : '#D3D3D3',
+        'chart'             : '#FF0000',
+        'table'             : '#FFC0CB',
+        'algorithm'         : '#006400',
+        'section'           : '#A9A9A9',
+        'doc_component'     : '#DCDCDC'
     }
 
-    edge_color_map = {
-        'hierarchical': 'black',
-        'spatial': 'darkgray'
-    }
+    node_colors = []
+    for n in graph.nodes():
+        node_attrs = graph.nodes[n]
+        color_key = node_attrs.get('type', node_attrs.get('node_type', 'doc_component'))
+        node_colors.append(node_color_map.get(color_key, '#DCDCDC'))
 
-    node_colors = [node_color_map.get(graph.nodes[n]['type'], 'gray') for n in graph.nodes()]
-    edge_colors = [edge_color_map.get(graph.edges[e]['type'], 'gray') for e in graph.edges()]
-
-    nx.draw_networkx(
-        graph,
-        pos=pos,
-        node_size=1000,
+    nx.draw_networkx_nodes(
+        graph, pos,
         node_color=node_colors,
-        edge_color=edge_colors,
-        font_size=20,
-        width=0.5,
-        alpha=0.8
+        node_size=150,
+        alpha=0.9,
+        edgecolors='white',
+        linewidths=1.0
     )
-    plt.savefig('graph.png', dpi=300, bbox_inches='tight')
+
+    sequence_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get('type') == 'sequence']
+    hierarchical_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get('type') == 'hierarchical']
+    other_edges = [(u, v) for u, v, d in graph.edges(data=True) if d.get('type') not in ['sequence', 'hierarchical']]
+
+    nx.draw_networkx_edges(
+        graph, pos,
+        edgelist=sequence_edges,
+        width=1.2,
+        alpha=0.6,
+        edge_color='brown',
+        arrowsize=12,
+        connectionstyle='arc3,rad=0.1'
+    )
+
+    nx.draw_networkx_edges(
+        graph, pos,
+        edgelist=hierarchical_edges,
+        width=0.8,
+        alpha=0.4,
+        edge_color='gray',
+        style='dashed',
+        arrowsize=10,
+        connectionstyle='arc3,rad=-0.1'
+    )
+
+    if other_edges:
+        nx.draw_networkx_edges(
+            graph, pos,
+            edgelist=other_edges,
+            width=0.5,
+            alpha=0.2,
+            edge_color='lightgray'
+        )
+
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig('graph.png', dpi=300, bbox_inches='tight', facecolor='white')
     plt.show()
