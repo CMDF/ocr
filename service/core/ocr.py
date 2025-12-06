@@ -8,7 +8,10 @@ ocr_m = PaddleOCR(use_doc_unwarping=False,
                   text_recognition_model_name="PP-OCRv5_server_rec")
 
 def ocr(img):
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    try:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    except Exception:
+        raise
 
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     img = clahe.apply(img)

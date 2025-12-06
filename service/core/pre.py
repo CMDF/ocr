@@ -186,27 +186,25 @@ def group_image_with_caption(page_data: dict, folder_name: str):
         target['label'] = 'None'
     final_boxes = other_boxes + merged_boxes + unmatched_targets
 
-    final_boxes.sort(key=lambda a: a['coordinate'][1])
-    length_validation = len(final_boxes) > 3
-    if length_validation:
-        y_comparison_first_two = abs(final_boxes[0]['coordinate'][1] - final_boxes[1]['coordinate'][1]) < 0.0001 and final_boxes[0]['coordinate'][1] != final_boxes[1]['coordinate'][1]
-        y_comparison_next_two = abs(final_boxes[1]['coordinate'][1] - final_boxes[2]['coordinate'][1]) < 0.0001 and final_boxes[1]['coordinate'][1] != final_boxes[2]['coordinate'][1]
-
-        if not y_comparison_next_two and y_comparison_first_two:
-            left_boxes = []
-            right_boxes = []
-            for box in final_boxes:
-                if box['coordinate'][0] < 0.4:
-                    left_boxes.append(box)
-                else:
-                    right_boxes.append(box)
-            left_boxes.sort(key=lambda a: a['coordinate'][1])
-            right_boxes.sort(key=lambda a: a['coordinate'][1])
-            final_boxes = left_boxes + right_boxes
+    left_boxes = []
+    right_boxes = []
+    for box in final_boxes:
+        if box['coordinate'][0] < 0.4:
+            left_boxes.append(box)
+        else:
+            right_boxes.append(box)
+    if len(right_boxes) > len(final_boxes) * 0.3:
+        left_boxes.sort(key=lambda a: a['coordinate'][1])
+        right_boxes.sort(key=lambda a: a['coordinate'][1])
+        final_boxes = left_boxes + right_boxes
 
     result_data = page_data.copy()
     result_data['boxes'] = final_boxes
 
+    return result_data
+
+def inject_section_info(page_data):
+    result_data = page_data
     return result_data
 
 def _is_contained(inner_box, outer_box):
@@ -220,26 +218,22 @@ def _is_contained(inner_box, outer_box):
 
 def remove_nested_boxes(page_data):
     boxes = page_data['boxes']
-    boxes.sort(key=lambda a: a['coordinate'][1])
     if not boxes:
         return page_data
-    length_validation = len(boxes) > 3
-    if length_validation:
-        y_comparison_first_two = abs(boxes[0]['coordinate'][1] - boxes[1]['coordinate'][1]) < 0.0001 and boxes[0]['coordinate'][1] != boxes[1]['coordinate'][1]
-        y_comparison_next_two = abs(boxes[1]['coordinate'][1] - boxes[2]['coordinate'][1]) < 0.0001 and boxes[1]['coordinate'][1] != boxes[2]['coordinate'][1]
-        if y_comparison_first_two and not y_comparison_next_two:
-            left_boxes = []
-            right_boxes = []
-            for box in boxes:
-                if box['coordinate'][0] < 0.4:
-                    left_boxes.append(box)
-                else:
-                    right_boxes.append(box)
-            left_boxes = _group_adjacent_targets(left_boxes)
-            right_boxes = _group_adjacent_targets(right_boxes)
-            boxes = left_boxes + right_boxes
-    else:
-        boxes = _group_adjacent_targets(boxes)
+
+    left_boxes = []
+    right_boxes = []
+    for box in boxes:
+        if box['coordinate'][0] < 0.4:
+            left_boxes.append(box)
+        else:
+            right_boxes.append(box)
+    if len(right_boxes) > len(boxes) * 0.3:
+        left_boxes = _group_adjacent_targets(left_boxes)
+        right_boxes = _group_adjacent_targets(right_boxes)
+        boxes = left_boxes + right_boxes
+
+    boxes = _group_adjacent_targets(boxes)
 
     indices_to_remove = set()
 
