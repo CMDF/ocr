@@ -193,9 +193,8 @@ def group_image_with_caption(page_data: dict, folder_name: str):
             left_boxes.append(box)
         else:
             right_boxes.append(box)
+    final_boxes.sort(key=lambda x: x['coordinate'][1])
     if len(right_boxes) > len(final_boxes) * 0.3:
-        left_boxes.sort(key=lambda a: a['coordinate'][1])
-        right_boxes.sort(key=lambda a: a['coordinate'][1])
         final_boxes = left_boxes + right_boxes
 
     result_data = page_data.copy()
@@ -232,8 +231,8 @@ def remove_nested_boxes(page_data):
         left_boxes = _group_adjacent_targets(left_boxes)
         right_boxes = _group_adjacent_targets(right_boxes)
         boxes = left_boxes + right_boxes
-
-    boxes = _group_adjacent_targets(boxes)
+    else:
+        boxes = _group_adjacent_targets(boxes)
 
     indices_to_remove = set()
 

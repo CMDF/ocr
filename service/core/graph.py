@@ -278,6 +278,7 @@ def create_reference_pairs(graph):
 
     left_boxes = []
     right_boxes = []
+    target_nodes_list.sort(key=lambda x: x[0][1].get('bbox')[1])
     for target_nodes in target_nodes_list:
         if target_nodes_list[0][1].get('bbox')[0] < 0.4:
             left_boxes.append(target_nodes)
