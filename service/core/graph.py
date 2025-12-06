@@ -4,7 +4,6 @@ from collections import defaultdict
 from networkx.readwrite import json_graph
 import matplotlib.pyplot as plt
 
-# Transforms raw data into a list of graph node dictionaries.
 def load_and_transform_data(data):
     transformed_results = []
 
@@ -16,28 +15,24 @@ def load_and_transform_data(data):
             continue
 
         for i, box in enumerate(boxes):
-            node = {}
-            coord = box['coordinate']
+            node = {
+                'id': f"pg{page_index}_box{i}",
+                'type': box['label'],
+                'page': page_index,
+                'bbox': [
+                    box['coordinate'][0],
+                    box['coordinate'][1],
+                    box['coordinate'][2],
+                    box['coordinate'][3]
+                ]
+            }
 
-            node['id'] = f"pg{page_index}_box{i}"
-            node['type'] = box['label']
-
-            if box['cls_id'] == 99 and box['label'] in ['image', 'table', 'figure', 'chart', 'algorithm']:
-                node['type'] = box['label']
-
-            node['page'] = page_index
-            node['conf'] = box['score']
             if 'text' in box:
                 node['text'] = box['text']
             if 'ref_info' in box:
                 node['ref_info'] = box['ref_info']
-
-            node['bbox'] = [
-                coord[0],
-                coord[1],
-                coord[2],
-                coord[3]
-            ]
+            if 'section_info' in box:
+                node['section_info'] = box['section_info']
 
             transformed_results.append(node)
 
@@ -52,96 +47,56 @@ VALID_NODE_TYPES = [
 ]
 IGNORED_NODE_TYPES = ["header", "footer", "header_image", "footer_image", "seal"]
 
-# Returns the center coordinates (x, y) of a node's bounding box (bbox).
 def _get_node_center(node):
     bbox = node['bbox']
     center_x = (bbox[0] + bbox[2]) / 2
     center_y = (bbox[1] + bbox[3]) / 2
     return center_x, center_y
 
-# Calculates the Euclidean distance between the centers of two nodes.
 def _get_distance(node1, node2):
     x1, y1 = _get_node_center(node1)
     x2, y2 = _get_node_center(node2)
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-# Adds 'sequence' edges by sorting nodes on a page by their y-coordinate.
 def _add_sequence_edges(graph, page_nodes):
     sorted_nodes = sorted(page_nodes, key=lambda n: n['bbox'][1])
-    # length_validation = len(sorted_nodes) > 3
-    # if length_validation:
-    #     y_comparison_first_two = abs(sorted_nodes[0]['bbox'][1] - sorted_nodes[1]['bbox'][1]) < 0.0001 and sorted_nodes[0]['bbox'][1] != sorted_nodes[1]['bbox'][1]
-    #     y_comparison_next_two = abs(sorted_nodes[1]['bbox'][1] - sorted_nodes[2]['bbox'][1]) < 0.0001 and sorted_nodes[1]['bbox'][1] != sorted_nodes[2]['bbox'][1]
-    #
-    #     if y_comparison_first_two and not y_comparison_next_two:
-    #         left_boxes = []
-    #         right_boxes = []
-    #         for target_nodes in sorted_nodes:
-    #             if sorted_nodes[0].get('bbox')[0] < 0.4:
-    #                 left_boxes.append(target_nodes)
-    #             else:
-    #                 right_boxes.append(target_nodes)
-    #         sorted_nodes = left_boxes + right_boxes
 
-    for i in range(len(sorted_nodes) - 1):
-        node1 = sorted_nodes[i]
-        node2 = sorted_nodes[i + 1]
-        if abs(node2['bbox'][1] - node1['bbox'][1]) < 0.2:
-            graph.add_edge(node1['id'], node2['id'], type='sequence')
-
-# Adds 'spatial' edges by finding the nearest 'up', 'down', 'left', and 'right' neighbor for each node on a page.
-def _add_spatial_edges(graph, page_nodes):
-    for node1 in page_nodes:
-        center1_x, center1_y = _get_node_center(node1)
-        neighbors = {'up': None, 'down': None, 'left': None, 'right': None}
-        min_dists = {'up': float('inf'), 'down': float('inf'), 'left': float('inf'), 'right': float('inf')}
-
-        for node2 in page_nodes:
-            if node1['id'] == node2['id']: continue
-            center2_x, center2_y = _get_node_center(node2)
-            dist = _get_distance(node1, node2)
-
-            if center2_y < center1_y and dist < min_dists['up']:
-                min_dists['up'], neighbors['up'] = dist, node2
-            elif center2_y > center1_y and dist < min_dists['down']:
-                min_dists['down'], neighbors['down'] = dist, node2
-            if center2_x < center1_x and dist < min_dists['left']:
-                min_dists['left'], neighbors['left'] = dist, node2
-            elif center2_x > center1_x and dist < min_dists['right']:
-                min_dists['right'], neighbors['right'] = dist, node2
-
-        for direction, neighbor_node in neighbors.items():
-            if neighbor_node:
-                graph.add_edge(node1['id'], neighbor_node['id'], type='spatial', dir=direction)
-
-# Adds parent-child 'hierarchical' edges based on document titles, sections, etc.
-def _add_hierarchical_edges(graph, all_nodes):
-    sorted_nodes = sorted(all_nodes, key=lambda n: (n['page'], n['bbox'][1]))
-    parent_stack = []
+    left_boxes = []
+    right_boxes = []
     for node in sorted_nodes:
-        node_type = node['type']
-        if node_type == 'doc_title':
-            parent_stack.clear()
-            parent_stack.append(node)
-        elif node_type in ['paragraph_title', 'section']:
-            while parent_stack and parent_stack[-1]['type'] not in ['doc_title']:
-                parent_stack.pop()
-            parent_stack.append(node)
+        if node['bbox'][0] < 0.4:
+            left_boxes.append(node)
+        else:
+            right_boxes.append(node)
+    if len(right_boxes) > len(sorted_nodes)*0.3:
+        sorted_nodes = left_boxes + right_boxes
 
-        if parent_stack and node['id'] != parent_stack[-1]['id']:
-            parent_node = parent_stack[-1]
-            graph.add_edge(parent_node['id'], node['id'], type='hierarchical', rel='child')
+    for i in range(len(sorted_nodes)-1):
+        node1 = sorted_nodes[i]
+        node2 = sorted_nodes[i+1]
+        graph.add_edge(node1['id'], node2['id'], type='sequence')
 
-# Builds the final document graph by adding nodes and orchestrating edge creation (sequence, spatial, hierarchical).
+def _add_hierarchical_edges(graph, all_nodes):
+    section_node_ids = list(range(1, 30))
+
+    for sec_id in section_node_ids:
+        graph.add_node(f"Section_{sec_id}", node_type="section")
+
+    for node_id, attrs in graph.nodes(data=True):
+        if 'section_info' in attrs:
+            target_section_node = f"Section_{int(attrs['section_info'])}"
+            if graph.has_node(target_section_node):
+                graph.add_edge(node_id, target_section_node, type='hierarchical')
+
 def build_document_graph(processed_data):
     G = nx.DiGraph()
     all_nodes = []
     for node_data in processed_data:
-        if node_data['type'] in IGNORED_NODE_TYPES: continue
+        if node_data['type'] in IGNORED_NODE_TYPES:
+            continue
 
         node_attrs = node_data.copy()
-
-        G.add_node(node_attrs['id'], **node_attrs)
+        G.add_node(node_type='doc_component', id=node_attrs['id'], **node_attrs)
         all_nodes.append(node_attrs)
 
     nodes_by_page = defaultdict(list)
@@ -150,13 +105,11 @@ def build_document_graph(processed_data):
 
     for page_num, page_nodes in nodes_by_page.items():
         _add_sequence_edges(G, page_nodes)
-        _add_spatial_edges(G, page_nodes)
 
     _add_hierarchical_edges(G, all_nodes)
 
     return G
 
-# Creates a {child_id: parent_id} map by traversing 'hierarchical' edges.
 def _get_hierarchical_ancestors(graph, node_id):
     ancestors = {
         'paragraph_title': set(),
@@ -262,7 +215,7 @@ def narrow_down_scope(sorted_targets, graph, ref_item):
 
     return scope_candidates
 
-# Finds reference pairs between text (source) and objects (target) and returns a {source_id: target_node} map.
+# TODO: change logic to use graph
 def create_reference_pairs(graph):
     target_nodes_list = []
     for node_id, attrs in graph.nodes(data=True):
