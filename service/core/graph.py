@@ -266,7 +266,7 @@ def save_graph_to_img(graph: nx.Graph):
         if d.get('type') == 'sequence':
             graph[u][v]['weight'] = 2.0
         elif d.get('type') == 'hierarchical':
-            graph[u][v]['weight'] = 0.08
+            graph[u][v]['weight'] = 0.1
         else:
             graph[u][v]['weight'] = 0.5
 
@@ -295,7 +295,7 @@ def save_graph_to_img(graph: nx.Graph):
     nx.draw_networkx_nodes(
         graph, pos,
         node_color=node_colors,
-        node_size=150,
+        node_size=500,
         alpha=0.9,
         edgecolors='white',
         linewidths=1.0
@@ -339,3 +339,9 @@ def save_graph_to_img(graph: nx.Graph):
     plt.tight_layout()
     plt.savefig('graph.png', dpi=300, bbox_inches='tight', facecolor='white')
     plt.show()
+
+if __name__ == '__main__':
+    with open('/home/gyupil/ocr/data/temp/Fast and secure IPC for microkernel.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        graph = build_document_graph(load_and_transform_data(data))
+        save_graph_to_img(graph)
