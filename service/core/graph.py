@@ -58,21 +58,21 @@ def _get_distance(node1, node2):
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 def _add_sequence_edges(graph, page_nodes):
-    sorted_nodes = sorted(page_nodes, key=lambda n: n['bbox'][1])
+    # sorted_nodes = sorted(page_nodes, key=lambda n: n['bbox'][1])
 
-    left_boxes = []
-    right_boxes = []
-    for node in sorted_nodes:
-        if node['bbox'][0] < 0.4:
-            left_boxes.append(node)
-        else:
-            right_boxes.append(node)
-    if len(right_boxes) > len(sorted_nodes)*0.3:
-        sorted_nodes = left_boxes + right_boxes
+    # left_boxes = []
+    # right_boxes = []
+    # for node in sorted_nodes:
+    #     if node['bbox'][0] < 0.4:
+    #         left_boxes.append(node)
+    #     else:
+    #         right_boxes.append(node)
+    # if len(right_boxes) > len(sorted_nodes)*0.3:
+    #     sorted_nodes = left_boxes + right_boxes
 
-    for i in range(len(sorted_nodes)-1):
-        node1 = sorted_nodes[i]
-        node2 = sorted_nodes[i+1]
+    for i in range(len(page_nodes)-1):
+        node1 = page_nodes[i]
+        node2 = page_nodes[i+1]
         graph.add_edge(node1['id'], node2['id'], type='sequence')
 
 def _add_hierarchical_edges(graph, all_nodes):
@@ -148,8 +148,8 @@ def _get_hierarchical_ancestors(graph, node_id):
 
 def find_target_with_name(scope_candidates, ref_item):
     label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)'
-    label_pattern_1 = r'\b(\d+(\.\d+)?|[A-Za-z]+)\s*\.?\s*(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)'
-    equation_pattern = r'\b(Equation|Eq)\s*\.?\s*\(?\s*(\d+)\s*\)?'
+    label_pattern_1 = r'\b(\d+(\.\d+)?)\s*\.?\s*(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)'
+    equation_pattern = r'\b(Equation|Eq)\s*\.?\s*\(?\s*(\d+(\.\d+))\s*\)?'
 
     target_text = ref_item.get('figure_text', '')
     match = re.search(label_pattern, target_text, re.IGNORECASE)
@@ -341,7 +341,7 @@ def save_graph_to_img(graph: nx.Graph):
     plt.show()
 
 if __name__ == '__main__':
-    with open('/home/gyupil/ocr/data/temp/Fast and secure IPC for microkernel.json', 'r', encoding='utf-8') as f:
+    with open('/home/gyupil/ocr/data/temp/Oppenheim, Willsky, Nawab - Signals & Systems [2nd Edition].json', 'r', encoding='utf-8') as f:
         data = json.load(f)
         graph = build_document_graph(load_and_transform_data(data))
         save_graph_to_img(graph)

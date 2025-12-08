@@ -19,7 +19,7 @@ def _group_adjacent_targets(boxes):
     if not boxes:
         return []
 
-    target_labels = ['image', 'table', 'figure', 'algorithm', 'chart']
+    target_labels = ['image', 'table', 'figure', 'algorithm', 'chart', 'formula']
     result_boxes = []
     i = 0
     n = len(boxes)
@@ -69,7 +69,16 @@ def group_and_sort_by_proximity(items):
     if not text:
         return []
 
-    items.sort(key=lambda a: a[1][1])
+    # items.sort(key=lambda a: a[1][1])
+    # left_boxes = []
+    # right_boxes = []
+    # for box in items:
+    #     if box[1][0] < 0.4:
+    #         left_boxes.append(box)
+    #     else:
+    #         right_boxes.append(box)
+    # if len(left_boxes) > len(items)*0.3:
+    #     items = left_boxes+right_boxes
 
     lines = []
 
@@ -109,13 +118,13 @@ def group_image_with_caption(page_data: dict, folder_name: str):
     target_boxes = []
     title_boxes = []
     other_boxes = []
-    for box in boxes:
+    for i, box in enumerate(boxes):
         if box.get('label') in ['image', 'table', 'figure', 'algorithm', 'chart', 'formula']:
-            target_boxes.append(box)
+            target_boxes.append((i, box))
         elif box.get('label') in ['figure_title', 'figure_caption', 'table_caption', 'table_title', 'chart_caption', 'chart_title', 'formula_number']:
-            title_boxes.append(box)
+            title_boxes.append((i, box))
         else:
-            other_boxes.append(box)
+            other_boxes.append((i, box))
 
     merged_boxes = []
     used_title_indices = set()
@@ -128,7 +137,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
         else:
             return coord2[1] - coord1[3]
 
-    for title_box in title_boxes:
+    for i, title_box in title_boxes:
         # if title_box['score'] < 0.8:
         #     continue
         title_coord = title_box['coordinate']
@@ -149,7 +158,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
             cal_flag = False
 
         closest = min(
-            ((i, target, _calculate_distance(title_box, target, cal_flag)) for i, target in enumerate(target_boxes) if i not in used_title_indices and sub_y(title_box, target) < 0.05),
+            ((i, target, _calculate_distance(title_box, target, cal_flag)) for i, target in target_boxes if i not in used_title_indices and sub_y(title_box, target) < 0.05),
             key=lambda x: x[2],
             default=(None, None, float('inf'))
         )
@@ -167,7 +176,10 @@ def group_image_with_caption(page_data: dict, folder_name: str):
                     figure_title = figure_title + res[0]
             else:
                 for res in figure_title_output:
-                    figure_title = figure_title + res['rec_texts'][0]
+                    try:
+                        figure_title = figure_title + res['rec_texts'][0]
+                    except Exception:
+                        figure_title = ""
 
             def image_to_figure(a):
                 if a['label'] == 'image':
@@ -175,27 +187,36 @@ def group_image_with_caption(page_data: dict, folder_name: str):
                 else:
                     return a['label']
 
-            merged_boxes.append({
+            def bigger(a, b):
+                if a > b:
+                    return a
+                else:
+                    return b
+
+            merged_boxes.append((bigger(i, idx), {
                 "cls_id": 99, "label": image_to_figure(target_box), "score": target_box['score'], "coordinate": new_coord,
                 'text': figure_title
-            })
+            }))
             # show(new_coord, str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename))
 
-    unmatched_targets   = [t for i, t in enumerate(target_boxes) if i not in used_title_indices]
-    for target in unmatched_targets:
+    unmatched_targets   = [(i, t) for i, t in target_boxes if i not in used_title_indices]
+    for i, target in unmatched_targets:
         target['label'] = 'None'
-    final_boxes = other_boxes + merged_boxes + unmatched_targets
 
-    left_boxes = []
-    right_boxes = []
-    for box in final_boxes:
-        if box['coordinate'][0] < 0.4:
-            left_boxes.append(box)
-        else:
-            right_boxes.append(box)
-    final_boxes.sort(key=lambda x: x['coordinate'][1])
-    if len(right_boxes) > len(final_boxes) * 0.3:
-        final_boxes = left_boxes + right_boxes
+    final_boxes = other_boxes + merged_boxes + unmatched_targets
+    final_boxes.sort(key=lambda x: x[0])
+    final_boxes = [fb[1] for fb in final_boxes]
+
+    # left_boxes = []
+    # right_boxes = []
+    # for box in final_boxes:
+    #     if box['coordinate'][0] < 0.4:
+    #         left_boxes.append(box)
+    #     else:
+    #         right_boxes.append(box)
+    # final_boxes.sort(key=lambda x: x['coordinate'][1])
+    # if len(right_boxes) > len(final_boxes) * 0.3:
+    #     final_boxes = left_boxes + right_boxes
 
     result_data = page_data.copy()
     result_data['boxes'] = final_boxes
@@ -220,19 +241,20 @@ def remove_nested_boxes(page_data):
     if not boxes:
         return page_data
 
-    left_boxes = []
-    right_boxes = []
-    for box in boxes:
-        if box['coordinate'][0] < 0.4:
-            left_boxes.append(box)
-        else:
-            right_boxes.append(box)
-    if len(right_boxes) > len(boxes) * 0.3:
-        left_boxes = _group_adjacent_targets(left_boxes)
-        right_boxes = _group_adjacent_targets(right_boxes)
-        boxes = left_boxes + right_boxes
-    else:
-        boxes = _group_adjacent_targets(boxes)
+    # left_boxes = []
+    # right_boxes = []
+    # boxes.sort(key=lambda x: x['coordinate'][1])
+    # for box in boxes:
+    #     if box['coordinate'][0] < 0.4:
+    #         left_boxes.append(box)
+    #     else:
+    #         right_boxes.append(box)
+    # if len(right_boxes) > len(boxes) * 0.3:
+    #     left_boxes = _group_adjacent_targets(left_boxes)
+    #     right_boxes = _group_adjacent_targets(right_boxes)
+    #     boxes = left_boxes + right_boxes
+    # else:
+    boxes = _group_adjacent_targets(boxes)
 
     indices_to_remove = set()
 

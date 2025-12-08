@@ -4,13 +4,9 @@ from pathlib import Path
 import json, os, fitz
 from config import debug
 from PIL import Image, ImageDraw
-
-model = LayoutDetection(model_name="PP-DocLayout-L")
-
 import re
 
-import re
-
+model = LayoutDetection(model_name="PP-DocLayoutV2")
 
 class HeaderParser:
     def __init__(self):
@@ -88,16 +84,8 @@ parser = HeaderParser()
 
 def layout_detection(path):
     doc = fitz.open(path)
-    page = doc.load_page(0)
-    width_pnt = page.rect.width
-    height_pnt = page.rect.height
-    doc.close()
-
-    width_px = width_pnt/72*144
-    height_px = height_pnt/72*144
 
     output = model.predict(input=path,
-                           batch_size=100,
                            layout_nms=True)
 
     if debug:
@@ -112,6 +100,11 @@ def layout_detection(path):
 
     for i, res in enumerate(output):
         data = res.json['res']
+        page = doc.load_page(data['page_index'])
+        width_pnt = page.rect.width
+        height_pnt = page.rect.height
+        width_px = width_pnt / 72 * 144
+        height_px = height_pnt / 72 * 144
         if structured_document["document_path"] is None:
             structured_document["document_path"] = data.get("input_path", "Unknown")
 
@@ -178,6 +171,7 @@ def layout_detection(path):
             "boxes": final_page_data["boxes"]
         })
 
+    doc.close()
     structured_document['pages'].sort(key=lambda p: p["page_index"])
 
     structured_document["total_pages"] = len(structured_document['pages'])

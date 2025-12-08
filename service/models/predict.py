@@ -163,11 +163,24 @@ def predict_from_text(text, crf_model=crf):
     predicted_tags = crf_model.predict([features])[0]
     spans = tags_to_spans(tokens, predicted_tags)
 
+    new_ref_info = []
+    for target_text in spans.ref_info:
+        label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)'
+        equation_pattern = r'\b(Equation|Eqs)\s*\.?\s*\(?\s*(\d+(\.\d+)?)\s*\)?'
+
+        match = re.search(label_pattern, target_text, re.IGNORECASE)
+
+        if not match:
+            match = re.search(equation_pattern, target_text, re.IGNORECASE)
+        if match:
+            new_ref_info.append(match.group())
+    spans.ref_info = new_ref_info
+
     if spans.ref_info or spans.section_info:
         spans.raw_texts.append(text)
 
     return spans, tokens, predicted_tags
 
 if __name__ == '__main__':
-    output, _, _ = predict_from_text("Solution Writing the equation z = i in polar form and using Eq .(5) in chapter 4, we obtain", joblib.load(MODEL_FILE))
+    output, _, _ = predict_from_text("For instance, as shown in Table 1, exploits known to the public annotated with a checkmark do so with the brute-force attack", joblib.load(MODEL_FILE))
     print(output)
