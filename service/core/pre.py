@@ -19,7 +19,7 @@ def _group_adjacent_targets(boxes):
     if not boxes:
         return []
 
-    target_labels = ['image', 'table', 'figure', 'algorithm', 'chart', 'formula']
+    target_labels = ['image', 'table', 'figure', 'algorithm', 'chart', 'display_formula']
     result_boxes = []
     i = 0
     n = len(boxes)
@@ -29,7 +29,7 @@ def _group_adjacent_targets(boxes):
         if current_box.get('label') in target_labels:
             group_to_merge = [current_box]
             j = i+1
-            while j < n and boxes[j].get('label') in target_labels:
+            while j < n and (boxes[j].get('label') in target_labels or (boxes[j].get('label') != 'formula_number' and boxes[j].get('coordinate')[2] - boxes[j].get('coordinate')[0] < 0.05)):
                 group_to_merge.append(boxes[j])
                 j+=1
 
@@ -119,7 +119,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
     title_boxes = []
     other_boxes = []
     for i, box in enumerate(boxes):
-        if box.get('label') in ['image', 'table', 'figure', 'algorithm', 'chart', 'formula']:
+        if box.get('label') in ['image', 'table', 'figure', 'algorithm', 'chart', 'display_formula']:
             target_boxes.append((i, box))
         elif box.get('label') in ['figure_title', 'figure_caption', 'table_caption', 'table_title', 'chart_caption', 'chart_title', 'formula_number']:
             title_boxes.append((i, box))
@@ -138,7 +138,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
             return coord2[1] - coord1[3]
 
     for i, title_box in title_boxes:
-        # if title_box['score'] < 0.8:
+        # if title_box['score'] < 0.65:
         #     continue
         title_coord = title_box['coordinate']
         filename = "page_" + str(page_data['page_index']+1) + ".png"
@@ -197,6 +197,7 @@ def group_image_with_caption(page_data: dict, folder_name: str):
                 "cls_id": 99, "label": image_to_figure(target_box), "score": target_box['score'], "coordinate": new_coord,
                 'text': figure_title
             }))
+            print(figure_title)
             # show(new_coord, str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename))
 
     unmatched_targets   = [(i, t) for i, t in target_boxes if i not in used_title_indices]

@@ -222,3 +222,14 @@ def det_debug(output: dict, folder_name: str, do: bool = debug):
 
     with open(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name/'output.pdf', "wb") as f:
         f.write(img2pdf.convert(imgs))
+
+    debug_images_path = str(Path(__file__).parent.parent.parent/'data'/'debug')
+    debug_imgs = [
+        os.path.join(debug_images_path, f)
+        for f in os.listdir(debug_images_path)
+        if f.lower().endswith(".png")
+    ]
+    debug_imgs.sort(key=lambda p: int(p.split("_")[1].split("_")[0]))
+
+    with open(Path(__file__).parent.parent.parent/'data'/'debug'/'debug.pdf', "wb") as f:
+        f.write(img2pdf.convert(debug_imgs))

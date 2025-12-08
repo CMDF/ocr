@@ -111,7 +111,7 @@ def extract_infos_from_pdf(pdf_path: str):
             page_text = ""
             boxes = page['boxes']
             texts = [t for t in boxes if t['label'] == 'text']
-            figures = [f for f in boxes if f['label'] in ['image', 'table', 'figure', 'chart', 'algorithm', 'formula']]
+            figures = [f for f in boxes if f['label'] in ['image', 'table', 'figure', 'chart', 'algorithm', 'display_formula']]
 
             for text in texts:
                 coord = text['coordinate']
@@ -205,8 +205,8 @@ if __name__ == "__main__":
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/AI_04_Adversarial Search (Updated 250924).pdf")
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Oppenheim, Willsky, Nawab - Signals & Systems [2nd Edition].pdf")
-    output = extract_infos_from_pdf("/home/gyupil/Downloads/Test2.pdf")
+    output = extract_infos_from_pdf("/home/gyupil/Downloads/test3.pdf")
     # output = extract_infos_from_pdf("/home/gyupil/Downloads/Fast and secure IPC for microkernel.pdf")
     interval = time.time() - start
-    print(output)
+    # print(output)
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")

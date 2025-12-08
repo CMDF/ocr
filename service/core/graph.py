@@ -40,7 +40,7 @@ def load_and_transform_data(data):
 VALID_NODE_TYPES = [
     "doc_title", "paragraph_title", "section",
     "text", "abstract", "references", "sidebar_text",
-    "formula", "algorithm",
+    "display_formula", "algorithm",
     "table", "figure", "chart", "image",
     "formula_number", "page_number", "number", "footnote", "chart_title"
 ]
@@ -109,45 +109,8 @@ def build_document_graph(processed_data):
 
     return G
 
-def _get_hierarchical_ancestors(graph, node_id):
-    ancestors = {
-        'paragraph_title': set(),
-        'doc_title': set()
-    }
-
-    queue = list(graph.predecessors(node_id))
-    visited = {node_id}
-
-    while queue:
-        parent_id = queue.pop(0)
-        if parent_id in visited:
-            continue
-        visited.add(parent_id)
-
-        try:
-            edge_data = graph.get_edge_data(parent_id, node_id)
-            node_attrs = graph.nodes[parent_id]
-        except KeyError:
-            continue
-
-        if edge_data and edge_data.get('type') == 'hierarchical':
-            node_type = node_attrs.get('type')
-
-            if node_type in ['paragraph_title', 'section']:
-                ancestors['paragraph_title'].add(parent_id)
-            elif node_type == 'doc_title':
-                ancestors['doc_title'].add(parent_id)
-
-            for grand_parent_id in graph.predecessors(parent_id):
-                if grand_parent_id not in visited:
-                    queue.append(grand_parent_id)
-
-        node_id = parent_id
-
-    return ancestors
-
 def find_target_with_name(scope_candidates, ref_item):
-    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)'
+    label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)\)?'
     label_pattern_1 = r'\b(\d+(\.\d+)?)\s*\.?\s*(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)'
     equation_pattern = r'\b(Equation|Eq)\s*\.?\s*\(?\s*(\d+(\.\d+))\s*\)?'
 
@@ -192,7 +155,7 @@ def create_reference_pairs(graph):
     target_nodes_list = []
     source_nodes_list = []
     for node_id, attrs in graph.nodes(data=True):
-        if attrs.get('type') in ['image', 'table', 'figure', 'chart', 'algorithm', 'formula']:
+        if attrs.get('type') in ['image', 'table', 'figure', 'chart', 'algorithm', 'display_formula']:
             node_data = attrs.copy()
             node_data['id'] = node_id
             target_nodes_list.append(node_data)
@@ -277,7 +240,7 @@ def save_graph_to_img(graph: nx.Graph):
         'paragraph_title'   : '#FFA500',
         'text'              : '#87CEEB',
         'figure'            : '#FA8072',
-        'formula'           : '#90EE90',
+        'display_formula'   : '#90EE90',
         'number'            : '#D3D3D3',
         'chart'             : '#FF0000',
         'table'             : '#FFC0CB',

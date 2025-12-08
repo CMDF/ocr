@@ -142,7 +142,6 @@ def tags_to_spans(tokens, tags):
     return output
 
 
-# --- 5. 예측용 전처리 (강제 공백 주입) ---
 def preprocess_for_inference(text):
     text = re.sub(r'([a-zA-Z])\.', r'\1 .', text)
     text = re.sub(r'([()])', r' \1 ', text)
@@ -165,7 +164,7 @@ def predict_from_text(text, crf_model=crf):
 
     new_ref_info = []
     for target_text in spans.ref_info:
-        label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)'
+        label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)\)?'
         equation_pattern = r'\b(Equation|Eqs)\s*\.?\s*\(?\s*(\d+(\.\d+)?)\s*\)?'
 
         match = re.search(label_pattern, target_text, re.IGNORECASE)
