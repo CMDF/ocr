@@ -197,7 +197,6 @@ def group_image_with_caption(page_data: dict, folder_name: str):
                 "cls_id": 99, "label": image_to_figure(target_box), "score": target_box['score'], "coordinate": new_coord,
                 'text': figure_title
             }))
-            print(figure_title)
             # show(new_coord, str(Path(__file__).parent.parent.parent/"data"/"temp"/folder_name/filename))
 
     unmatched_targets   = [(i, t) for i, t in target_boxes if i not in used_title_indices]

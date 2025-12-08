@@ -55,7 +55,7 @@ def _get_node_center(node):
 def _get_distance(node1, node2):
     x1, y1 = _get_node_center(node1)
     x2, y2 = _get_node_center(node2)
-    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)+abs(node1['page']-node2['page'])
 
 def _add_sequence_edges(graph, page_nodes):
     # sorted_nodes = sorted(page_nodes, key=lambda n: n['bbox'][1])
@@ -109,14 +109,14 @@ def build_document_graph(processed_data):
 
     return G
 
-def find_target_with_name(scope_candidates, ref_item):
+def find_target_with_name(scope_candidates, ref_item, source):
+    candidate = []
     label_pattern = r'\b(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)\s*\.?\s*\(?(\d+(\.\d+)?|[A-Za-z]+)\)?'
     label_pattern_1 = r'\b(\d+(\.\d+)?)\s*\.?\s*(Figure|Fig|Table|Formula|Algorithm|Chart|Equation|Eq)'
     equation_pattern = r'\b(Equation|Eq)\s*\.?\s*\(?\s*(\d+(\.\d+))\s*\)?'
 
     target_text = ref_item.get('figure_text', '')
     match = re.search(label_pattern, target_text, re.IGNORECASE)
-    best_match = None
 
     if not match:
         match = re.search(equation_pattern, target_text, re.IGNORECASE)
@@ -146,10 +146,14 @@ def find_target_with_name(scope_candidates, ref_item):
                 tn = tm.group(1)
             if tm:
                 if t_kind == tk and t_num == tn:
-                    best_match = target
+                    candidate.append(target)
                     break
 
-    return best_match
+    if candidate:
+        candidate.sort(key=lambda node: _get_distance(node, source))
+        return candidate[0]
+    else:
+        return None
 
 def create_reference_pairs(graph):
     target_nodes_list = []
@@ -187,7 +191,7 @@ def create_reference_pairs(graph):
             else:
                 scope = target_nodes_list
 
-            best_match = find_target_with_name(scope, ref_item)
+            best_match = find_target_with_name(scope, ref_item, source_attrs)
 
             if best_match:
                 pairs.append({
