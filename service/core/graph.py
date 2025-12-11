@@ -178,17 +178,14 @@ def create_reference_pairs(graph):
         for ref_item in source_attrs['ref_info']:
             scope = []
             if ref_item['section_info']:
-                try:
-                    section_node_id = f"Section_{int(float(ref_item.get('section_info')[0]))}"
-                    if not graph.has_node(section_node_id):
-                        scope = []
-                    for u, v, data in graph.in_edges(section_node_id, data=True):
-                        if data.get('type') == 'hierarchical':
-                            node_data = graph.nodes[u]
-                            scope.append(node_data)
-                except Exception:
-                    scope = target_nodes_list
-            else:
+                section_node_id = f"Section_{int(float(ref_item.get('section_info')[0]))}"
+                if not graph.has_node(section_node_id):
+                    scope = []
+                for u, v, data in graph.in_edges(section_node_id, data=True):
+                    if data.get('type') == 'hierarchical':
+                        node_data = graph.nodes[u]
+                        scope.append(node_data)
+            if not scope:
                 scope = target_nodes_list
 
             best_match = find_target_with_name(scope, ref_item, source_attrs)

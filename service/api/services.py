@@ -201,12 +201,14 @@ def extract_infos_from_pdf(pdf_path: str):
             os.removedirs(Path(__file__).parent.parent.parent/'data'/'temp'/folder_name)
 
 if __name__ == "__main__":
+    algorithm = "/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf"
+    fast = "/home/gyupil/Downloads/Fast and secure IPC for microkernel.pdf"
+    SS = "/home/gyupil/Downloads/Oppenheim, Willsky, Nawab - Signals & Systems [2nd Edition].pdf"
+    etc = "/home/gyupil/Downloads/test3.pdf"
+
     start = time.time()
-    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Introduction to Algorithms (Thomas H. Cormen, Charles E. Leiserson etc.) (Z-Library).pdf")
-    # output = extract_infos_from_pdf("/home/gyupil/Downloads/AI_04_Adversarial Search (Updated 250924).pdf")
-    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Oppenheim, Willsky, Nawab - Signals & Systems [2nd Edition].pdf")
-    output = extract_infos_from_pdf("/home/gyupil/Downloads/test3.pdf")
-    # output = extract_infos_from_pdf("/home/gyupil/Downloads/Fast and secure IPC for microkernel.pdf")
+    output = extract_infos_from_pdf(fast)
     interval = time.time() - start
+
     # print(output)
     print(f">>> Task completed in {int(interval/60)} minutes {int(interval%60)} seconds.")
