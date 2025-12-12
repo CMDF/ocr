@@ -26,7 +26,7 @@ executor = ThreadPoolExecutor(max_workers=1)
 
 @app.post("/pages", status_code=status.HTTP_201_CREATED)
 async def read_pdf(bucket: S3model):
-    filename = hashlib.sha256(bucket.file_url.encode()).hexdigest() + ".pdf"
+    filename = hashlib.sha256((bucket.file_url.split('Faws4')[0]).encode()).hexdigest() + ".pdf"
     temp_path = Path(__file__).parent.parent.parent/"data"/"temp"/filename
 
     if filename in processed_files:

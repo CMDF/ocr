@@ -178,17 +178,21 @@ def create_reference_pairs(graph):
         for ref_item in source_attrs['ref_info']:
             scope = []
             if ref_item['section_info']:
-                section_node_id = f"Section_{int(float(ref_item.get('section_info')[0]))}"
-                if not graph.has_node(section_node_id):
-                    scope = []
-                for u, v, data in graph.in_edges(section_node_id, data=True):
-                    if data.get('type') == 'hierarchical':
-                        node_data = graph.nodes[u]
-                        scope.append(node_data)
-            if not scope:
-                scope = target_nodes_list
+                try:
+                    section_node_id = f"Section_{int(float(ref_item.get('section_info')[0]))}"
+                    if not graph.has_node(section_node_id):
+                        scope = []
+                    for u, v, data in graph.in_edges(section_node_id, data=True):
+                        if data.get('type') == 'hierarchical':
+                            node_data = graph.nodes[u]
+                            scope.append(node_data)
+                except Exception:
+                    scope = target_nodes_list
 
             best_match = find_target_with_name(scope, ref_item, source_attrs)
+
+            if not best_match:
+                best_match = find_target_with_name(target_nodes_list, ref_item, source_attrs)
 
             if best_match:
                 pairs.append({
@@ -201,28 +205,6 @@ def create_reference_pairs(graph):
                 })
 
     return pairs
-
-def find_nodes(graph, **conditions):
-    found_nodes = []
-
-    for node_id, attrs in graph.nodes(data=True):
-        match = True
-        for key, condition_value in conditions.items():
-            attr_value = attrs.get(key)
-
-            if callable(condition_value):
-                if not condition_value(attr_value):
-                    match = False
-                    break
-            else:
-                if attr_value != condition_value:
-                    match = False
-                    break
-
-        if match:
-            found_nodes.append(attrs)
-
-    return found_nodes
 
 def save_graph_to_img(graph: nx.Graph):
     plt.figure(figsize=(30, 30))
